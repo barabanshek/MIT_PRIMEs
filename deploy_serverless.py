@@ -7,9 +7,9 @@ import re
 # Credentials
 kSSHKey = "/Users/nikita/.ssh/id_rsa"
 kUsername = "niklz"
-kNodes = ["ms0836.utah.cloudlab.us", "ms0813.utah.cloudlab.us", "ms0805.utah.cloudlab.us"]
+kNodes = ["hp030.utah.cloudlab.us", "hp036.utah.cloudlab.us", "hp004.utah.cloudlab.us", "hp012.utah.cloudlab.us", "hp037.utah.cloudlab.us"]
 kMasterNode = 0
-kWorkerNodes = [1, 2]
+kWorkerNodes = [1, 2, 3, 4]
 
 
 # SSH comands
@@ -67,6 +67,9 @@ kInstallCmd_MasterSetupvSwarm = '''
     go get google.golang.org/grpc/cmd/protoc-gen-go-grpc
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
     make invoker
+
+    kubectl patch ConfigMap config-features -n knative-serving -p '{"data":{"kubernetes.podspec-affinity":"enabled"}}'
+    kubectl patch ConfigMap config-features -n knative-serving -p '{"data":{"kubernetes.podspec-tolerations":"enabled"}}'
 '''
 
 class Deployer:
