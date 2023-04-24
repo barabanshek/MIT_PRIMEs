@@ -14,6 +14,7 @@
     },
 
     "sys": {
+        "vHive_version": "3b105486a87577c4d90ee8b229020eb100225ac5",
         "log_filename": "server_setup.log"
     }
 }

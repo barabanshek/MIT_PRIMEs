@@ -24,7 +24,7 @@ kInstallCmd_AllNodes = '''
 
     git clone https://github.com/vhive-serverless/vhive.git
     cd vhive
-    git checkout 3b105486a87577c4d90ee8b229020eb100225ac5
+    git checkout TAG_VHIVE_VERSION
     mkdir -p /tmp/vhive-logs
     ./scripts/cloudlab/setup_node.sh stock-only > >(tee -a /tmp/vhive-logs/setup_node.stdout) 2> >(tee -a /tmp/vhive-logs/setup_node.stderr >&2)
 '''
@@ -83,6 +83,7 @@ class Deployer:
         self.account_username_ = json_data['account']['username']
         self.account_ssh_key_filename_ = json_data['account']['ssh_key_filename']
         self.ssh_port_ = json_data['account']['port']
+        self.vHiveVersion_ = json_data['sys']['vHive_version']
 
         # Init Deployer
         self.ssh_clients_master_ = None
@@ -123,7 +124,9 @@ class Deployer:
         self.lock_.release()
 
     def setup_all_nodes(self, ssh_cli):
-        stdin, stdout, stderr = ssh_cli.exec_command(kInstallCmd_AllNodes)
+        # Check the right vHive version
+        install_cmd = kInstallCmd_AllNodes.replace("TAG_VHIVE_VERSION", self.vHiveVersion_)
+        stdin, stdout, stderr = ssh_cli.exec_command(install_cmd)
         exit_status = stdout.channel.recv_exit_status()
         self.__log(stdout, stderr)
 
@@ -197,7 +200,7 @@ class Deployer:
                 assert False
             else:
                 p_bar += 1
-                print(f'{p_bar}/{len(self.ssh_clients_workers_)} ', end='')
+                print(f'  {p_bar}/{len(self.ssh_clients_workers_)}')
         print("")
 
         # Answer 'yes' to the master and wait until it finishes
