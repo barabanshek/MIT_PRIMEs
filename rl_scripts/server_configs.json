@@ -1,0 +1,19 @@
+{
+    "servers": {
+        "hostnames": {
+            "hp138.utah.cloudlab.us" : "master",
+            "hp156.utah.cloudlab.us" : "worker",
+            "hp131.utah.cloudlab.us" : "worker"
+        }
+    },
+
+    "account": {
+        "username": "niklz",
+        "ssh_key_filename": "/Users/nikita/.ssh/id_rsa",
+        "port": 22
+    },
+
+    "sys": {
+        "log_filename": "server_setup.log"
+    }
+}

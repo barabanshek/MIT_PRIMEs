@@ -7,7 +7,8 @@ import re
 import yaml
 from enum import Enum
 import csv
-
+import json
+import argparse
 
 
 class EnvStatus(Enum):
@@ -23,32 +24,58 @@ class Env:
                 }
         }
 
-    # Name of the worker nodes as reported by `kubectl get nodes`
-    worker_nodes_ = {
-        1: "node-1.niklz-155204.ragger-pg0.utah.cloudlab.us",
-        2: "node-2.niklz-155204.ragger-pg0.utah.cloudlab.us",
-        3: "node-3.niklz-155204.ragger-pg0.utah.cloudlab.us",
-        4: "node-4.niklz-155204.ragger-pg0.utah.cloudlab.us",
-    }
-
-    # Just hostnames of the servers
-    hostnames_ = ["hp030.utah.cloudlab.us", "hp036.utah.cloudlab.us", "hp004.utah.cloudlab.us", "hp012.utah.cloudlab.us", "hp037.utah.cloudlab.us"]
-
     # Some consts
     kDeployTimeout_s_ = 30
 
-    def __init__(self, master_node, port, user_name, ssh_key_filename, enable_strict_error_checking = False):
-        k = RSAKey.from_private_key_file(ssh_key_filename)
+    def __init__(self, server_configs_json, enable_strict_error_checking = False):
+        # Parse server configuration
+        with open(server_configs_json, 'r') as f:
+            json_data = json.load(f)
+        self.server_nodes_ = json_data['servers']['hostnames']
+        self.account_username_ = json_data['account']['username']
+        self.account_ssh_key_filename_ = json_data['account']['ssh_key_filename']
+        self.ssh_port_ = json_data['account']['port']
 
+        # Init Env
+        k = RSAKey.from_private_key_file(self.account_ssh_key_filename_)
         self.ssh_client_ = SSHClient()
         self.ssh_client_.set_missing_host_key_policy(AutoAddPolicy())
-        self.ssh_client_.connect(self.hostnames_[master_node], port, user_name, pkey = k)
+        self.ssh_client_.connect([n_name for n_name, n_role in self.server_nodes_.items() if n_role == "master"][0],
+                                    self.ssh_port_,
+                                    self.account_username_,
+                                    pkey = k)
         self.scp = SCPClient(self.ssh_client_.get_transport())
 
         self.enable_strict_error_checking_ = enable_strict_error_checking
 
-    def enable_env(self, benchmark_name):
-        pass
+    #
+    def enable_env(self):
+        # Enable knative to allow manual function placement
+        self.ssh_client_.exec_command('''kubectl patch ConfigMap config-features -n knative-serving -p '{"data":{"kubernetes.podspec-affinity":"enabled"}}' ''')
+        self.ssh_client_.exec_command('''kubectl patch ConfigMap config-features -n knative-serving -p '{"data":{"kubernetes.podspec-tolerations":"enabled"}}' ''')
+
+        # Check all nodes are ready
+        stdin, stdout, stderr = self.ssh_client_.exec_command('''kubectl get nodes | awk '{print $2}' ''')
+        ret = stdout.read().decode('UTF-8').split('\n')[1:-1]
+        assert len(ret) == len(self.server_nodes_), "Incorrect number of servers detected"
+        for node_status in ret:
+            if not node_status == 'Ready':
+                print(" > ERROR: some nodes are not ready")
+                return EnvStatus.ERROR
+
+        # Get node names as appears in knative
+        stdin, stdout, stderr = self.ssh_client_.exec_command('''kubectl get nodes | awk '{print $1}' ''')
+        ret = stdout.read().decode('UTF-8').split('\n')[1:-1]
+
+        # Worker ids start from 1, also skip the first node as it is a Master
+        ret = ret[1:]
+        self.k_worker_nodenames_ = {}
+        for i in range(len(ret)):
+            self.k_worker_nodenames_[i + 1] = ret[i]
+
+        # Print some env stats
+        print(" > Env is initialized, some stats: ")
+        print("   knative worker node names: ", self.k_worker_nodenames_)
 
     # Change parameters and deploy benchmark @param benchmark_name
     # @param deployment_actions:
@@ -66,7 +93,7 @@ class Env:
                 yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/max-scale'] = str(depl_action[1])
                 yaml_dict['spec']['template']['spec']['affinity']['nodeAffinity'] \
                          ['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0] \
-                         ['matchExpressions'][0]['values'][0] = self.worker_nodes_[depl_action[0]]
+                         ['matchExpressions'][0]['values'][0] = self.k_worker_nodenames_[depl_action[0]]
                 with open(f'tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}', 'w+') as f_dpl:
                     yaml.dump(yaml_dict, f_dpl)
 
@@ -172,26 +199,42 @@ class Env:
 
         return lat
 
+    # Get cluster runtime stats, such as CPU/mem/network utilization
     def get_env_state(self):
         pass
 
 
+
 #
-# Try it
+# Example cmd:
+#   python3 deploy_serverless.py --serverconfig server_configs.json
 #
-env = Env(0, 22, 'niklz', '/Users/nikita/.ssh/id_rsa')
+def main(args):
+    env = Env(args.serverconfig)
+    env.enable_env()
 
-for c in [1, 1, 2, 3, 4, 5, 6, 7]:
-    print(c, ":")
-    env.deploy_application("fibonacci", {"fibonacci-python": [2, c]})
+    # Exec some configuration
+    for c in [1, 1, 2, 3, 4, 5, 6, 7]:
+        print(c, ":")
+        env.deploy_application("fibonacci", {"fibonacci-python": [1, c]})
 
-    (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
-                    env.invoke_application("fibonacci", "fibonacci-python", {'port': 80, 'duration': 10, 'rps': 700})
-    print(f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
+        (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
+                        env.invoke_application("fibonacci", "fibonacci-python", {'port': 80, 'duration': 10, 'rps': 500})
+        print(f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
 
-    lat_stat = env.get_latencies(stat_lat_filename)
-    lat_stat.sort()
-    print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
-    print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
-    print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
-    print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
+        lat_stat = env.get_latencies(stat_lat_filename)
+        lat_stat.sort()
+        print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
+        print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
+        print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
+        print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--serverconfig')
+    args = parser.parse_args()
+
+    if args.serverconfig == None:
+        assert False, "Please, specify the server configuration json filename"
+
+    main(args)
