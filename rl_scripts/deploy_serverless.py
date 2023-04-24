@@ -72,11 +72,11 @@ kInstallCmd_MasterSetupvSwarm = '''
 
 
 #
-# Deployer -- prepare all the nodes in the cluster for experiments
+# Deployer -- prepare all the nodes in the cluster for experiments.
 #
 class Deployer:
     def __init__(self, server_configs_json):
-        # Parse server configuration
+        # Parse server configuration.
         with open(server_configs_json, 'r') as f:
             json_data = json.load(f)
         self.server_nodes_ = json_data['servers']['hostnames']
@@ -85,7 +85,7 @@ class Deployer:
         self.ssh_port_ = json_data['account']['port']
         self.vHiveVersion_ = json_data['sys']['vHive_version']
 
-        # Init Deployer
+        # Init Deployer.
         self.ssh_clients_master_ = None
         self.ssh_clients_workers_ = []
         self.lock_ = threading.Lock()
@@ -103,16 +103,16 @@ class Deployer:
             else:
                 assert False, f'Unknown server role, check you {server_configs_json}'
 
-        # Check configuration
+        # Check configuration.
         if self.ssh_clients_master_ == None:
             assert False, "Please, specify the master node"
         if self.ssh_clients_workers_ == []:
             assert False, "The testbed must have at least one worker node"
 
-        # Open log file
+        # Open log file.
         self.log_file_ = open(json_data['sys']['log_filename'], "w+")
 
-    # Thread-safe logging into the log file
+    # Thread-safe logging into the log file.
     def __log(self, stdout, stderr):
         self.lock_.acquire()
 
@@ -124,7 +124,7 @@ class Deployer:
         self.lock_.release()
 
     def setup_all_nodes(self, ssh_cli):
-        # Check the right vHive version
+        # Check the right vHive version.
         install_cmd = kInstallCmd_AllNodes.replace("TAG_VHIVE_VERSION", self.vHiveVersion_)
         stdin, stdout, stderr = ssh_cli.exec_command(install_cmd)
         exit_status = stdout.channel.recv_exit_status()
@@ -164,11 +164,11 @@ class Deployer:
         for t in threads:
             t.join()
 
-        # Start joining procedure
+        # Start joining procedure.
         print("Setting-up Master...")
         stdin_m, stdout_m, stderr_m = self.ssh_clients_master_.exec_command(kInstallCmd_MasterJoin)
 
-        # Wait until it prints the "join" string
+        # Wait until it prints the "join" string.
         join_string = ""
         while(True):
             stdin, stdout, stderr = self.ssh_clients_master_.exec_command("cat /tmp/vhive-logs/create_multinode_cluster.stdout")
@@ -188,7 +188,7 @@ class Deployer:
 
         print("...join string: ", join_string)
 
-        # Join on all workers (sequentialy, this is important)
+        # Join on all workers (sequentialy, this is important).
         print("Joining all workers...")
         p_bar = 0
         for ssh_cli in self.ssh_clients_workers_:
@@ -203,7 +203,7 @@ class Deployer:
                 print(f'  {p_bar}/{len(self.ssh_clients_workers_)}')
         print("")
 
-        # Answer 'yes' to the master and wait until it finishes
+        # Answer 'yes' to the master and wait until it finishes.
         stdin_m.channel.send('y\n')
         stdin_m.channel.shutdown_write()
         exit_status = stdout_m.channel.recv_exit_status()
@@ -226,7 +226,7 @@ class Deployer:
 
 #
 # Example cmd:
-#   python3 deploy_serverless.py --serverconfig server_configs.json
+#   python3 deploy_serverless.py --serverconfig server_configs.json .
 #
 def main(args):
     deployer = Deployer(args.serverconfig)
