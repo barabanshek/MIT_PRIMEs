@@ -96,6 +96,15 @@ scrape_configs:
   - targets: ['$(hostname -i):9100']
         " > prometheus.yml
 
+    cd
+    cd node_exporter-1.5.0.linux-amd64/
+    ./node_exporter > /dev/null 2>&1 &
+    cd
+    cd prometheus-2.43.0.linux-amd64/
+    ./prometheus --config.file=./prometheus.yml > /dev/null 2>&1 &
+
+    exit 0
+
 '''
 
 
