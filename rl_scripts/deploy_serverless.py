@@ -48,6 +48,10 @@ kInstallCmd_MasterJoin = '''
 
 '''
 
+kPostInstallCmd_ = '''
+    sudo chmod 666 ${pwd}.config/kn/config.yaml
+'''
+
 kInstallCmd_MasterSetupvSwarm = '''
     git clone https://github.com/vhive-serverless/vSwarm.git
     echo "Y" | sudo apt install protobuf-compiler
@@ -243,6 +247,12 @@ class Deployer:
         if not exit_status == 0:
             print("Error after workers have joined the cluster, try to re-run the script OR check the error log")
             assert False
+
+        # Do some post-install
+        print("Post-installation...")
+        stdin, stdout, stderr = self.ssh_clients_master_.exec_command(kPostInstallCmd_)
+        exit_status = stdout.channel.recv_exit_status()
+        assert exit_status == 0, "Error during post-installation"
 
         #
         print("Installing vSwarm...")
