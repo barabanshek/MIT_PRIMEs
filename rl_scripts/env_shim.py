@@ -63,19 +63,19 @@ class Env:
                 print(" > ERROR: some nodes are not ready")
                 return EnvStatus.ERROR
 
-        # Get node names as appears in knative
+        # Get node hostnames as appears in knative
         stdin, stdout, stderr = self.ssh_client_.exec_command('''kubectl get nodes | awk '{print $1}' ''')
         ret = stdout.read().decode('UTF-8').split('\n')[1:-1]
 
         # Worker ids start from 1, also skip the first node as it is a Master
         ret = ret[1:]
-        self.k_worker_nodenames_ = {}
+        self.k_worker_hostnames_ = {}
         for i in range(len(ret)):
-            self.k_worker_nodenames_[i + 1] = ret[i]
+            self.k_worker_hostnames_[i + 1] = ret[i]
 
         # Print some env stats
         print(" > Env is initialized, some stats: ")
-        print("   knative worker node names: ", self.k_worker_nodenames_)
+        print("   knative worker node names: ", self.k_worker_hostnames_)
 
     # Change parameters and deploy benchmark @param benchmark_name
     # @param deployment_actions:
@@ -93,7 +93,7 @@ class Env:
                 yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/max-scale'] = str(depl_action[1])
                 yaml_dict['spec']['template']['spec']['affinity']['nodeAffinity'] \
                          ['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0] \
-                         ['matchExpressions'][0]['values'][0] = self.k_worker_nodenames_[depl_action[0]]
+                         ['matchExpressions'][0]['values'][0] = self.k_worker_hostnames_[depl_action[0]]
                 with open(f'tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}', 'w+') as f_dpl:
                     yaml.dump(yaml_dict, f_dpl)
 
