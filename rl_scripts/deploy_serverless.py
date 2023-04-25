@@ -17,6 +17,8 @@ kInstallCmd_AllNodes = '''
         cd vhive
         sudo scripts/github_runner/clean_cri_runner.sh
         cd
+        pkill -9 node_exporter
+        pkill -9 prometheus
     fi
     echo "Cleaning dirs..."
     sudo rm -r *
@@ -27,6 +29,7 @@ kInstallCmd_AllNodes = '''
     git checkout TAG_VHIVE_VERSION
     mkdir -p /tmp/vhive-logs
     ./scripts/cloudlab/setup_node.sh stock-only > >(tee -a /tmp/vhive-logs/setup_node.stdout) 2> >(tee -a /tmp/vhive-logs/setup_node.stderr >&2)
+
 '''
 
 kInstallCmd_WorkerNodes = '''
@@ -35,6 +38,7 @@ kInstallCmd_WorkerNodes = '''
     sudo screen -dmS containerd bash -c "containerd > >(tee -a /tmp/vhive-logs/containerd.stdout) 2> >(tee -a /tmp/vhive-logs/containerd.stderr >&2)"
     source /etc/profile && go build
     sudo screen -dmS vhive bash -c "./vhive > >(tee -a /tmp/vhive-logs/vhive.stdout) 2> >(tee -a /tmp/vhive-logs/vhive.stderr >&2)"
+
 '''
 
 kInstallCmd_MasterJoin = '''
@@ -68,6 +72,26 @@ kInstallCmd_MasterSetupvSwarm = '''
 
     kubectl patch ConfigMap config-features -n knative-serving -p '{"data":{"kubernetes.podspec-affinity":"enabled"}}'
     kubectl patch ConfigMap config-features -n knative-serving -p '{"data":{"kubernetes.podspec-tolerations":"enabled"}}'
+
+'''
+
+kInstallCmd_Prometheus = '''
+    wget https://github.com/prometheus/node_exporter/releases/download/v1.5.0/node_exporter-1.5.0.linux-amd64.tar.gz
+    tar -xvf node_exporter-1.5.0.linux-amd64.tar.gz
+    wget https://github.com/prometheus/prometheus/releases/download/v2.43.0/prometheus-2.43.0.linux-amd64.tar.gz
+    tar -xvf prometheus-2.43.0.linux-amd64.tar.gz
+
+    cd prometheus-2.43.0.linux-amd64/
+    echo "
+global:
+  scrape_interval: 1s
+
+scrape_configs:
+- job_name: node
+  static_configs:
+  - targets: ['$(hostname -i):9100']
+        " > prometheus.yml
+
 '''
 
 
@@ -141,6 +165,15 @@ class Deployer:
 
         if not exit_status == 0:
             print("Error when setting-up worker nodes, please, check the script log")
+            assert False    # crash immediately
+
+    def install_prometheus(self, ssh_cli):
+        stdin, stdout, stderr = ssh_cli.exec_command(kInstallCmd_Prometheus)
+        exit_status = stdout.channel.recv_exit_status()
+        self.__log(stdout, stderr)
+
+        if not exit_status == 0:
+            print("Error wheninstalling Prometheus, please, check the script log")
             assert False    # crash immediately
 
     def deploy(self):
@@ -220,6 +253,16 @@ class Deployer:
             print("vSwarm is installed!")
         else:
             print("Error when installing vSwarm, try to do it manually")
+
+        #
+        print("Installing Prometheus on all nodes...")
+        threads = []
+        for ssh_cli in [self.ssh_clients_master_] + self.ssh_clients_workers_:
+            t = threading.Thread(target=self.install_prometheus, args=(ssh_cli,))
+            t.start()
+            threads.append(t)
+        for t in threads:
+            t.join()
 
         print("All nodes are set, but please check the logs and also execute `watch kubectl get nodes` and `watch kubectl get pods --all-namespaces` on the master node to see if things are OK")
 
