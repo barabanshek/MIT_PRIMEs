@@ -100,9 +100,10 @@ scrape_configs:
 
 
 #
-# Deployer -- prepare all the nodes in the cluster for experiments.
+# ServerlessDeployer -- prepare all the nodes in the cluster for
+# serverless experiments.
 #
-class Deployer:
+class ServerlessDeployer:
     def __init__(self, server_configs_json):
         # Parse server configuration.
         with open(server_configs_json, 'r') as f:
@@ -113,7 +114,7 @@ class Deployer:
         self.ssh_port_ = json_data['account']['port']
         self.vHiveVersion_ = json_data['sys']['vHive_version']
 
-        # Init Deployer.
+        # Init ServerlessDeployer.
         self.ssh_clients_master_ = None
         self.ssh_clients_workers_ = []
         self.lock_ = threading.Lock()
@@ -122,7 +123,8 @@ class Deployer:
         for node_name, role in self.server_nodes_.items():
             ssh_client = SSHClient()
             ssh_client.set_missing_host_key_policy(AutoAddPolicy())
-            ssh_client.connect(node_name, self.ssh_port_, self.account_username_, pkey = k)
+            ssh_client.connect(node_name, self.ssh_port_,
+                               self.account_username_, pkey=k)
 
             if role == "master":
                 self.ssh_clients_master_ = ssh_client
@@ -153,8 +155,9 @@ class Deployer:
 
     def __setup_all_nodes(self, ssh_cli):
         # Check the right vHive version.
-        install_cmd = kInstallCmd_AllNodes.replace("TAG_VHIVE_VERSION", self.vHiveVersion_)
-        stdin, stdout, stderr = ssh_cli.exec_command(install_cmd)
+        install_cmd = kInstallCmd_AllNodes.replace(
+            "TAG_VHIVE_VERSION", self.vHiveVersion_)
+        _, stdout, stderr = ssh_cli.exec_command(install_cmd)
         exit_status = stdout.channel.recv_exit_status()
         self.__log(stdout, stderr)
 
@@ -163,7 +166,7 @@ class Deployer:
             assert False    # crash immediately
 
     def __setup_worker_nodes(self, ssh_cli):
-        stdin, stdout, stderr = ssh_cli.exec_command(kInstallCmd_WorkerNodes)
+        _, stdout, stderr = ssh_cli.exec_command(kInstallCmd_WorkerNodes)
         exit_status = stdout.channel.recv_exit_status()
         self.__log(stdout, stderr)
 
@@ -172,7 +175,7 @@ class Deployer:
             assert False    # crash immediately
 
     def __install_prometheus(self, ssh_cli):
-        stdin, stdout, stderr = ssh_cli.exec_command(kInstallCmd_Prometheus)
+        _, stdout, stderr = ssh_cli.exec_command(kInstallCmd_Prometheus)
         exit_status = stdout.channel.recv_exit_status()
         self.__log(stdout, stderr)
 
@@ -194,20 +197,23 @@ class Deployer:
         #
         print("Setting-up all nodes...")
         self.__execute_script_in_parallel([self.ssh_clients_master_] + self.ssh_clients_workers_,
-                                           self.__setup_all_nodes)
+                                          self.__setup_all_nodes)
 
         #
         print("Setting-up worker nodes...")
-        self.__execute_script_in_parallel(self.ssh_clients_workers_, self.__setup_worker_nodes)
+        self.__execute_script_in_parallel(
+            self.ssh_clients_workers_, self.__setup_worker_nodes)
 
         # Start joining procedure.
         print("Setting-up Master...")
-        stdin_m, stdout_m, stderr_m = self.ssh_clients_master_.exec_command(kInstallCmd_MasterJoin)
+        stdin_m, stdout_m, stderr_m = self.ssh_clients_master_.exec_command(
+            kInstallCmd_MasterJoin)
 
         # Wait until it prints the "join" string.
         join_string = ""
-        while(True):
-            stdin, stdout, stderr = self.ssh_clients_master_.exec_command("cat /tmp/vhive-logs/create_multinode_cluster.stdout")
+        while (True):
+            _, stdout, stderr = self.ssh_clients_master_.exec_command(
+                "cat /tmp/vhive-logs/create_multinode_cluster.stdout")
             exit_status = stdout.channel.recv_exit_status()
             assert exit_status == 0, "Can not happen"
 
@@ -228,11 +234,12 @@ class Deployer:
         print("Joining all workers...")
         p_bar = 0
         for ssh_cli in self.ssh_clients_workers_:
-            stdin, stdout, stderr = ssh_cli.exec_command(join_string)
+            _, stdout, stderr = ssh_cli.exec_command(join_string)
             exit_status = stdout.channel.recv_exit_status()
             self.__log(stdout, stderr)
             if not exit_status == 0:
-                print("Failed to join cluster, try to re-run the script OR check the error log")
+                print(
+                    "Failed to join cluster, try to re-run the script OR check the error log")
                 assert False
             else:
                 p_bar += 1
@@ -245,18 +252,21 @@ class Deployer:
         exit_status = stdout_m.channel.recv_exit_status()
         self.__log(stdout_m, stderr_m)
         if not exit_status == 0:
-            print("Error after workers have joined the cluster, try to re-run the script OR check the error log")
+            print(
+                "Error after workers have joined the cluster, try to re-run the script OR check the error log")
             assert False
 
         # Do some post-install
         print("Post-installation...")
-        stdin, stdout, stderr = self.ssh_clients_master_.exec_command(kPostInstallCmd_)
+        _, stdout, stderr = self.ssh_clients_master_.exec_command(
+            kPostInstallCmd_)
         exit_status = stdout.channel.recv_exit_status()
         assert exit_status == 0, "Error during post-installation"
 
         #
         print("Installing vSwarm...")
-        stdin, stdout, stderr = self.ssh_clients_master_.exec_command(kInstallCmd_MasterSetupvSwarm)
+        _, stdout, stderr = self.ssh_clients_master_.exec_command(
+            kInstallCmd_MasterSetupvSwarm)
         exit_status = stdout.channel.recv_exit_status()
         if exit_status == 0:
             print("vSwarm is installed!")
@@ -266,18 +276,20 @@ class Deployer:
         #
         print("Installing Prometheus on all nodes...")
         self.__execute_script_in_parallel([self.ssh_clients_master_] + self.ssh_clients_workers_,
-                                           self.__install_prometheus)
+                                          self.__install_prometheus)
 
-        print("All nodes are set, but please check the logs and also execute `watch kubectl get nodes` and `watch kubectl get pods --all-namespaces` on the master node to see if things are OK")
+        print("All nodes are set, but please check the logs and also execute `watch kubectl get nodes`"
+              "and `watch kubectl get pods --all-namespaces` on the master node to see if things are OK")
 
 
 #
 # Example cmd:
-#   python3 deploy_serverless.py --serverconfig server_configs.json .
+#    python3 setup_testbed.py --serverconfig server_configs.json .
 #
 def main(args):
-    deployer = Deployer(args.serverconfig)
+    deployer = ServerlessDeployer(args.serverconfig)
     deployer.deploy()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
