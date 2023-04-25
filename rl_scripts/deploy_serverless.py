@@ -147,7 +147,7 @@ class Deployer:
 
         self.lock_.release()
 
-    def setup_all_nodes(self, ssh_cli):
+    def __setup_all_nodes(self, ssh_cli):
         # Check the right vHive version.
         install_cmd = kInstallCmd_AllNodes.replace("TAG_VHIVE_VERSION", self.vHiveVersion_)
         stdin, stdout, stderr = ssh_cli.exec_command(install_cmd)
@@ -158,7 +158,7 @@ class Deployer:
             print("Error when setting-up all nodes, please, check the script log")
             assert False    # crash immediately
 
-    def setup_worker_nodes(self, ssh_cli):
+    def __setup_worker_nodes(self, ssh_cli):
         stdin, stdout, stderr = ssh_cli.exec_command(kInstallCmd_WorkerNodes)
         exit_status = stdout.channel.recv_exit_status()
         self.__log(stdout, stderr)
@@ -167,7 +167,7 @@ class Deployer:
             print("Error when setting-up worker nodes, please, check the script log")
             assert False    # crash immediately
 
-    def install_prometheus(self, ssh_cli):
+    def __install_prometheus(self, ssh_cli):
         stdin, stdout, stderr = ssh_cli.exec_command(kInstallCmd_Prometheus)
         exit_status = stdout.channel.recv_exit_status()
         self.__log(stdout, stderr)
@@ -176,26 +176,25 @@ class Deployer:
             print("Error wheninstalling Prometheus, please, check the script log")
             assert False    # crash immediately
 
-    def deploy(self):
-        #
-        print("Setting-up all nodes...")
+    # Execute the same @param script on @param nodes concurrently and independently
+    def __execute_script_in_parallel(self, nodes, script):
         threads = []
-        for ssh_cli in [self.ssh_clients_master_] + self.ssh_clients_workers_:
-            t = threading.Thread(target=self.setup_all_nodes, args=(ssh_cli,))
+        for ssh_cli in nodes:
+            t = threading.Thread(target=script, args=(ssh_cli,))
             t.start()
             threads.append(t)
         for t in threads:
             t.join()
 
+    def deploy(self):
+        #
+        print("Setting-up all nodes...")
+        self.__execute_script_in_parallel([self.ssh_clients_master_] + self.ssh_clients_workers_,
+                                           self.__setup_all_nodes)
+
         #
         print("Setting-up worker nodes...")
-        threads = []
-        for ssh_cli in self.ssh_clients_workers_:
-            t = threading.Thread(target=self.setup_worker_nodes, args=(ssh_cli,))
-            t.start()
-            threads.append(t)
-        for t in threads:
-            t.join()
+        self.__execute_script_in_parallel(self.ssh_clients_workers_, self.__setup_worker_nodes)
 
         # Start joining procedure.
         print("Setting-up Master...")
@@ -256,13 +255,8 @@ class Deployer:
 
         #
         print("Installing Prometheus on all nodes...")
-        threads = []
-        for ssh_cli in [self.ssh_clients_master_] + self.ssh_clients_workers_:
-            t = threading.Thread(target=self.install_prometheus, args=(ssh_cli,))
-            t.start()
-            threads.append(t)
-        for t in threads:
-            t.join()
+        self.__execute_script_in_parallel([self.ssh_clients_master_] + self.ssh_clients_workers_,
+                                           self.__install_prometheus)
 
         print("All nodes are set, but please check the logs and also execute `watch kubectl get nodes` and `watch kubectl get pods --all-namespaces` on the master node to see if things are OK")
 
