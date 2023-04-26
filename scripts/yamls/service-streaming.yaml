@@ -1,0 +1,34 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: streaming
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "<placeholder>"
+        autoscaling.knative.dev/max-scale: "<placeholder>"
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                  - <placeholder>
+      containers:
+        - image: docker.io/vhiveease/video-analytics-streaming:latest
+          imagePullPolicy: Always
+          args: ["-addr", "decoder.default.svc.cluster.local"]
+          env:
+            - name: TRANSFER_TYPE
+              value: "INLINE"
+            - name: ENABLE_TRACING
+              value: "false"
+          ports:
+            # For `h2c`, see https://knative.tips/networking/http2/
+            - name: h2c
+              containerPort: 80

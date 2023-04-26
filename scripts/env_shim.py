@@ -27,13 +27,18 @@ class Env:
     benchmarks_ = {
         "fibonacci": {
             "fibonacci-python": ["~/vSwarm/benchmarks/fibonacci/yamls/knative/", "kn-fibonacci-python.yaml"]
+        },
+        "video-analytics": {
+            "decoder": ["~/vSwarm/benchmarks/video-analytics/yamls/knative/inline/", "service-decoder.yaml"],
+            "recog": ["~/vSwarm/benchmarks/video-analytics/yamls/knative/inline/", "service-recog.yaml"],
+            "streaming": ["~/vSwarm/benchmarks/video-analytics/yamls/knative/inline/", "service-streaming.yaml"]
         }
     }
 
     # Some consts.
     kDeployTimeout_s_ = 30
 
-    def __init__(self, server_configs_json, enable_strict_error_checking=False):
+    def __init__(self, server_configs_json):
         # Parse server configuration.
         with open(server_configs_json, 'r') as f:
             json_data = json.load(f)
@@ -51,8 +56,6 @@ class Env:
                                  self.account_username_,
                                  pkey=k)
         self.scp = SCPClient(self.ssh_client_.get_transport())
-
-        self.enable_strict_error_checking_ = enable_strict_error_checking
 
         # Some extra vars for later use
         self.total_mem_ = None
@@ -133,31 +136,31 @@ class Env:
                     f' > ERROR: failed to send configuration for {benchmark_name}|{fnct_name}')
                 return EnvStatus.ERROR
 
-        # (Re)-deploy the benchmark.
-        for fnct_name, depl_action in deployment_actions.items():
-            stdin, stdout, stderr = self.ssh_client_.exec_command(
-                f'kn service delete {fnct_name}')
-            if self.enable_strict_error_checking_:
-                err = stderr.read().decode('UTF-8')
-                if not err == "":
-                    print(
-                        f' > ERROR: failed to deploy function {benchmark_name}|{fnct_name}, failed to delete prev. deployment, error was: ', err)
-                    return EnvStatus.ERROR
+        # Delete previous deployments.
+        stdin, stdout, stderr = self.ssh_client_.exec_command(
+            'kn service delete --all')
+        exit_status = stdout.channel.recv_exit_status()
+        if not exit_status == 0:
+            print(
+                f' > ERROR: failed to deploy benchmark {benchmark_name}, failed to delete prev. deployment')
+            return EnvStatus.ERROR
 
+        # Deploy new benchmark.
+        for fnct_name in deployment_actions.keys():
             stdin, stdout, stderr = self.ssh_client_.exec_command(
                 f'vSwarm/tools/kn_deploy.sh {self.benchmarks_[benchmark_name][fnct_name][0] + self.benchmarks_[benchmark_name][fnct_name][1]}')
-            if self.enable_strict_error_checking_:
-                err = stderr.read().decode('UTF-8')
-                if not err == "":
-                    print(
-                        f' > ERROR: failed to deploy function {benchmark_name}|{fnct_name}, failed to execute deployment script, error was: ', err)
-                    return EnvStatus.ERROR
+            exit_status = stdout.channel.recv_exit_status()
+            if not exit_status == 0:
+                print(
+                    f' > ERROR: failed to deploy function {benchmark_name}|{fnct_name}, failed to execute deployment script')
+                return EnvStatus.ERROR
 
-            # Wait until deployed.
+        # Wait until deployed.
+        for fnct_name in deployment_actions.keys():
             timeout_cnt = 0
             while (True):
                 stdin, stdout, stderr = self.ssh_client_.exec_command(
-                    "kn service list --all-namespaces | awk '{print $7}'")
+                    f"kn service list {fnct_name} | awk '{{print $6}}' ")
                 ret = stdout.read().decode('UTF-8').split('\n')
                 if (ret[0] == 'READY' and ret[1] == 'OK'):
                     print(
@@ -172,10 +175,11 @@ class Env:
                 timeout_cnt += 1
                 time.sleep(1)
 
+            url = None
             if (timeout_cnt < self.kDeployTimeout_s_):
                 # Get the URL of deployed function.
                 stdin, stdout, stderr = self.ssh_client_.exec_command(
-                    "kn service list --all-namespaces | awk '{print $3}'")
+                    f"kn service list {fnct_name} | awk '{{print $2}}' ")
                 url = stdout.read().decode('UTF-8').split('\n')[1]
 
                 self.function_urls_[fnct_name] = url
@@ -285,48 +289,3 @@ class Env:
             ret[p_id] = tpl
 
         return ret
-
-
-#
-# Example cmd:
-#   python3 deploy_serverless.py --serverconfig server_configs.json .
-#
-def main(args):
-    env = Env(args.serverconfig)
-    env.enable_env()
-
-    # Some params
-    duration_s = 20
-
-    # Exec some configuration.
-    for c in [7, 10, 15]:
-        # for c in [1, 2, 3, 4, 5, 6, 7]:
-        print(c, ":")
-        env.deploy_application("fibonacci", {"fibonacci-python": [4, c]})
-
-        (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
-            env.invoke_application(
-                "fibonacci", "fibonacci-python", {'port': 80, 'duration': duration_s, 'rps': 500})
-        print(
-            f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
-
-        lat_stat = env.get_latencies(stat_lat_filename)
-        lat_stat.sort()
-        print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
-        print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
-        print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
-        print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
-
-        env_state = env.sample_env(duration_s)
-        print('    env_state:', env_state)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--serverconfig')
-    args = parser.parse_args()
-
-    if args.serverconfig == None:
-        assert False, "Please, specify the server configuration json filename"
-
-    main(args)
