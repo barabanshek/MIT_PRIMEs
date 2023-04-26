@@ -102,9 +102,10 @@ class Env:
         print("   knative #of available metrics for workers: ", {
               k: len(v.all_metrics()) for k, v in self.k_worker_metrics_.items()})
 
-    # Change parameters and deploy benchmark @param benchmark_name
-    # @param deployment_actions:
-    #   {"function_name": [node, C]}
+    # Change parameters and deploy benchmark @param benchmark_name @param deployment_actions (if needed, add more here):
+    #   {"function_name": [node, C]},
+    #               where 'node' is the node we want to run the function on;
+    #               'C' - number of function instances on that node
     def deploy_application(self, benchmark_name, deployment_actions):
         #
         self.function_urls_ = {}
@@ -188,7 +189,7 @@ class Env:
             f' > all functions from {benchmark_name} are deployed: ', self.function_urls_)
         return EnvStatus.SUCCESS
 
-    # Invoke function @param function_name form bencharm @param benchmark_name with the default invoker
+    # Invoke function @param function_name form benchmark @param benchmark_name with the default invoker
     # invoke_params: {'port': 80,
     #                 'duration': 10,
     #                 'rps': 1
