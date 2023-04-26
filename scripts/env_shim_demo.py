@@ -80,7 +80,7 @@ def main(args):
 
 #
 # Example cmd:
-#   python3 deploy_serverless.py --serverconfig server_configs.json --benchmark video-analytics .
+#   python3 deploy_serverless.py --serverconfig server_configs.json --benchmark video-analytics --duration 10 --rps 5
 #
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
