@@ -32,7 +32,18 @@ class Env:
             "decoder": ["~/vSwarm/benchmarks/video-analytics/yamls/knative/inline/", "service-decoder.yaml"],
             "recog": ["~/vSwarm/benchmarks/video-analytics/yamls/knative/inline/", "service-recog.yaml"],
             "streaming": ["~/vSwarm/benchmarks/video-analytics/yamls/knative/inline/", "service-streaming.yaml"]
-        }
+        }  # ,
+        # "hotel-app": {
+        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-geo-tracing.yaml"],
+        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-geo.yaml"],
+        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-profile.yaml"],
+        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-rate.yaml"],
+        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-recommendation.yaml"],
+        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-reservation.yaml"],
+        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-search-tracing.yaml"],
+        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-search.yaml"],
+        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-user.yaml"]
+        # }
     }
 
     # Some consts.
@@ -187,6 +198,17 @@ class Env:
 
         print(
             f' > all functions from {benchmark_name} are deployed: ', self.function_urls_)
+        return EnvStatus.SUCCESS
+
+    def delete_all_deployments(self):
+        # Delete previous deployments.
+        _, stdout, _ = self.ssh_client_.exec_command(
+            'kn service delete --all')
+        exit_status = stdout.channel.recv_exit_status()
+        if not exit_status == 0:
+            print(f' > ERROR: failed to detele all deployed apps')
+            return EnvStatus.ERROR
+
         return EnvStatus.SUCCESS
 
     # Invoke function @param function_name form benchmark @param benchmark_name with the default invoker
