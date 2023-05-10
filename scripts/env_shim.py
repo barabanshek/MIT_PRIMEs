@@ -32,22 +32,33 @@ class Env:
             "decoder": ["~/vSwarm/benchmarks/video-analytics/yamls/knative/inline/", "service-decoder.yaml"],
             "recog": ["~/vSwarm/benchmarks/video-analytics/yamls/knative/inline/", "service-recog.yaml"],
             "streaming": ["~/vSwarm/benchmarks/video-analytics/yamls/knative/inline/", "service-streaming.yaml"]
-        }  # ,
-        # "hotel-app": {
-        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-geo-tracing.yaml"],
-        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-geo.yaml"],
-        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-profile.yaml"],
-        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-rate.yaml"],
-        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-recommendation.yaml"],
-        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-reservation.yaml"],
-        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-search-tracing.yaml"],
-        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-search.yaml"],
-        #     "decoder": ["~/vSwarm/benchmarks/hotel-app/yamls/knative", "kn-user.yaml"]
-        # }
+        },
+        "online-shop": {
+            "adservice": ["~/vSwarm/benchmarks/online-shop/yamls/knative/", "kn-adservice.yaml"],
+            "cartservice": ["~/vSwarm/benchmarks/online-shop/yamls/knative/", "kn-cartservice.yaml"],
+            "currencyservice": ["~/vSwarm/benchmarks/online-shop/yamls/knative/", "kn-currencyservice.yaml"],
+            "emailservice": ["~/vSwarm/benchmarks/online-shop/yamls/knative/", "kn-emailservice.yaml"],
+            "paymentservice": ["~/vSwarm/benchmarks/online-shop/yamls/knative/", "kn-paymentservice.yaml"],
+            "productcatalogservice": ["~/vSwarm/benchmarks/online-shop/yamls/knative/", "kn-productcatalogservice.yaml"],
+            "shippingservice": ["~/vSwarm/benchmarks/online-shop/yamls/knative/", "kn-shippingservice.yaml"],
+            # skipping checkoutservice, as it's chained
+            # skipping recommendationservice, same
+        },
+        "hotel-app": {
+            "hotel-app-geo-tracing": ["~/vSwarm/benchmarks/hotel-app/yamls/knative/", "kn-geo-tracing.yaml"],
+            "hotel-app-geo": ["~/vSwarm/benchmarks/hotel-app/yamls/knative/", "kn-geo.yaml"],
+            "hotel-app-profile": ["~/vSwarm/benchmarks/hotel-app/yamls/knative/", "kn-profile.yaml"],
+            "hotel-app-rate": ["~/vSwarm/benchmarks/hotel-app/yamls/knative/", "kn-rate.yaml"],
+            "hotel-app-recommendation": ["~/vSwarm/benchmarks/hotel-app/yamls/knative/", "kn-recommendation.yaml"],
+            "hotel-app-reservation": ["~/vSwarm/benchmarks/hotel-app/yamls/knative/", "kn-reservation.yaml"],
+            "hotel-app-user": ["~/vSwarm/benchmarks/hotel-app/yamls/knative/", "kn-user.yaml"],
+            # skipping kn-search-tracing.yaml, as it's chained
+            # skipping kn-search.yaml, same
+        }
     }
 
     # Some consts.
-    kDeployTimeout_s_ = 30
+    kDeployTimeout_s_ = 60
 
     def __init__(self, server_configs_json):
         # Parse server configuration.
@@ -113,6 +124,9 @@ class Env:
         print("   knative #of available metrics for workers: ", {
               k: len(v.all_metrics()) for k, v in self.k_worker_metrics_.items()})
 
+    def get_worker_num(self):
+        return len(self.k_worker_hostnames_)
+
     # Change parameters and deploy benchmark @param benchmark_name @param deployment_actions (if needed, add more here):
     #   {"function_name": [node, C]},
     #               where 'node' is the node we want to run the function on;
@@ -157,15 +171,28 @@ class Env:
                 f' > ERROR: failed to deploy benchmark {benchmark_name}, failed to delete prev. deployment')
             return EnvStatus.ERROR
 
-        # Deploy new benchmark.
-        for fnct_name in deployment_actions.keys():
-            stdin, stdout, stderr = self.ssh_client_.exec_command(
-                f'vSwarm/tools/kn_deploy.sh {self.benchmarks_[benchmark_name][fnct_name][0] + self.benchmarks_[benchmark_name][fnct_name][1]}')
-            exit_status = stdout.channel.recv_exit_status()
-            if not exit_status == 0:
-                print(
-                    f' > ERROR: failed to deploy function {benchmark_name}|{fnct_name}, failed to execute deployment script')
-                return EnvStatus.ERROR
+        # Clean-up all pods.
+        stdin, stdout, stderr = self.ssh_client_.exec_command(
+            'kubectl delete pod --all --grace-period=0 --force')
+        exit_status = stdout.channel.recv_exit_status()
+        if not exit_status == 0:
+            print(
+                f' > ERROR: failed to deploy benchmark {benchmark_name}, failed to clean-up all pods')
+            return EnvStatus.ERROR
+
+        # Deploy new benchmark (concurrently, to speed-up deployment).
+        fn_dpl_string = ""
+        if (len(deployment_actions) == 1):
+            fnct_name = list(deployment_actions.keys())[0]
+            fn_dpl_string += f'kn service apply -f {self.benchmarks_[benchmark_name][fnct_name][0] + self.benchmarks_[benchmark_name][fnct_name][1]}'
+        else:
+            for fnct_name in deployment_actions.keys():
+                fn_dpl_string += f'kn service apply -f {self.benchmarks_[benchmark_name][fnct_name][0] + self.benchmarks_[benchmark_name][fnct_name][1]}' + ' & '
+            # 'wait' waits until all background processes are done.
+            fn_dpl_string += 'wait'
+
+        # Actual deployment.
+        stdin, stdout, stderr = self.ssh_client_.exec_command(fn_dpl_string)
 
         # Wait until deployed.
         for fnct_name in deployment_actions.keys():

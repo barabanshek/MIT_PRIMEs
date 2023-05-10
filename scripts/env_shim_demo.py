@@ -6,7 +6,7 @@ kDemoDeploymentActions = {
     "fibonacci": {
         "benchmark_name": "fibonacci",
         "functions": {
-            "fibonacci-python": [2, 2]
+            "fibonacci-python": [1, 10]
         },
         "entry_point": "fibonacci-python",
         "port": 80
@@ -42,6 +42,132 @@ kDemoDeploymentActions = {
         "entry_point": "streaming",
         "port": 80
     },
+
+    "online-shop-ad": {
+        "benchmark_name": "online-shop",
+        "functions": {
+            "adservice": [1, 5]
+        },
+        "entry_point": "adservice",
+        "port": 80
+    },
+
+    "online-shop-cart": {
+        "benchmark_name": "online-shop",
+        "functions": {
+            "cartservice": [1, 5]
+        },
+        "entry_point": "cartservice",
+        "port": 80
+    },
+
+    "online-shop-currency": {
+        "benchmark_name": "online-shop",
+        "functions": {
+            "currencyservice": [3, 5]
+        },
+        "entry_point": "currencyservice",
+        "port": 80
+    },
+
+    "online-shop-email": {
+        "benchmark_name": "online-shop",
+        "functions": {
+            "emailservice": [2, 5]
+        },
+        "entry_point": "emailservice",
+        "port": 80
+    },
+
+    "online-shop-payment": {
+        "benchmark_name": "online-shop",
+        "functions": {
+            "paymentservice": [4, 5]
+        },
+        "entry_point": "paymentservice",
+        "port": 80
+    },
+
+    "online-shop-productcatalogservice": {
+        "benchmark_name": "online-shop",
+        "functions": {
+            "productcatalogservice": [3, 5]
+        },
+        "entry_point": "productcatalogservice",
+        "port": 80
+    },
+
+    "online-shop-shippingservice": {
+        "benchmark_name": "online-shop",
+        "functions": {
+            "shippingservice": [3, 5]
+        },
+        "entry_point": "shippingservice",
+        "port": 80
+    },
+
+    "hotel-app-geo-tracing": {
+        "benchmark_name": "hotel-app",
+        "functions": {
+            "hotel-app-geo-tracing": [2, 5]
+        },
+        "entry_point": "hotel-app-geo-tracing",
+        "port": 80
+    },
+
+    "hotel-app-geo": {
+        "benchmark_name": "hotel-app",
+        "functions": {
+            "hotel-app-geo": [2, 5]
+        },
+        "entry_point": "hotel-app-geo",
+        "port": 80
+    },
+
+    "hotel-app-profile": {
+        "benchmark_name": "hotel-app",
+        "functions": {
+            "hotel-app-profile": [2, 5]
+        },
+        "entry_point": "hotel-app-profile",
+        "port": 80
+    },
+
+    "hotel-app-rate": {
+        "benchmark_name": "hotel-app",
+        "functions": {
+            "hotel-app-rate": [2, 5]
+        },
+        "entry_point": "hotel-app-rate",
+        "port": 80
+    },
+
+    "hotel-app-recommendation": {
+        "benchmark_name": "hotel-app",
+        "functions": {
+            "hotel-app-recommendation": [3, 15]
+        },
+        "entry_point": "hotel-app-recommendation",
+        "port": 80
+    },
+
+    "hotel-app-reservation": {
+        "benchmark_name": "hotel-app",
+        "functions": {
+            "hotel-app-reservation": [2, 5]
+        },
+        "entry_point": "hotel-app-reservation",
+        "port": 80
+    },
+
+    "hotel-app-user": {
+        "benchmark_name": "hotel-app",
+        "functions": {
+            "hotel-app-user": [2, 5]
+        },
+        "entry_point": "hotel-app-user",
+        "port": 80
+    }
 }
 
 
