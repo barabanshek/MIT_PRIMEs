@@ -146,12 +146,12 @@ class Env:
                     depl_action[1])
                 yaml_dict['spec']['template']['spec']['affinity']['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0]['matchExpressions'][0]['values'][0] = self.k_worker_hostnames_[
                     depl_action[0]]
-                with open(f'tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}', 'w+') as f_dpl:
+                with open(f'/tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}', 'w+') as f_dpl:
                     yaml.dump(yaml_dict, f_dpl)
 
             # Send config to server.
             try:
-                self.scp.put(f'tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}',
+                self.scp.put(f'/tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}',
                              remote_path=self.benchmarks_[
                                  benchmark_name][fnct_name][0] + self.benchmarks_[benchmark_name][fnct_name][1],
                              recursive=False)
@@ -281,9 +281,9 @@ class Env:
     def get_latencies(self, latency_stat_filename):
         lat = []
         self.scp.get(remote_path=latency_stat_filename,
-                     local_path='tmp/',
+                     local_path='/tmp/',
                      recursive=False)
-        with open(f'tmp/{latency_stat_filename}') as f:
+        with open(f'/tmp/{latency_stat_filename}') as f:
             csv_reader = csv.reader(f, delimiter=' ', quotechar='|')
             for row in csv_reader:
                 lat.append((float)(', '.join(row)))
