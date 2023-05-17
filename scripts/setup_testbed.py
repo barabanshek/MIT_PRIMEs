@@ -1,5 +1,5 @@
 import os
-from paramiko import SSHClient, RSAKey, AutoAddPolicy
+from paramiko import SSHClient, Ed25519Key, AutoAddPolicy
 import threading
 import time
 import re
@@ -50,9 +50,9 @@ kInstallCmd_MasterJoin = '''
 
 '''
 
-kPostInstallCmd_ = '''
-    sudo chmod 666 ${pwd}.config/kn/config.yaml
-'''
+# kPostInstallCmd_ = '''
+#     sudo chmod 666 ${pwd}.config/kn/config.yaml
+# '''
 
 kInstallCmd_MasterSetupvSwarm = '''
     git clone https://github.com/vhive-serverless/vSwarm.git
@@ -130,7 +130,7 @@ class ServerlessDeployer:
         self.ssh_clients_workers_ = []
         self.lock_ = threading.Lock()
 
-        k = RSAKey.from_private_key_file(self.account_ssh_key_filename_)
+        k = Ed25519Key.from_private_key_file(self.account_ssh_key_filename_)
         for node_name, role in self.server_nodes_.items():
             ssh_client = SSHClient()
             ssh_client.set_missing_host_key_policy(AutoAddPolicy())
@@ -271,8 +271,8 @@ class ServerlessDeployer:
 
         # Do some post-install
         print("Post-installation...")
-        _, stdout, stderr = self.ssh_clients_master_.exec_command(
-            kPostInstallCmd_)
+        # _, stdout, stderr = self.ssh_clients_master_.exec_command(
+        #     kPostInstallCmd_)
         exit_status = stdout.channel.recv_exit_status()
         # TODO: this might fail sometimes, investigate and fix later.
         # assert exit_status == 0, "Error during post-installation"

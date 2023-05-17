@@ -1,18 +1,17 @@
 {
     "servers": {
         "hostnames": {
-            "hp077.utah.cloudlab.us" : "master",
+            "hp066.utah.cloudlab.us" : "master",
+            "hp053.utah.cloudlab.us" : "worker",
             "hp072.utah.cloudlab.us" : "worker",
-            "hp054.utah.cloudlab.us" : "worker",
-            "hp044.utah.cloudlab.us" : "worker",
-            "hp071.utah.cloudlab.us" : "worker",
-            "hp068.utah.cloudlab.us" : "worker"
+            "hp067.utah.cloudlab.us" : "worker",
+            "hp051.utah.cloudlab.us" : "worker"
         }
     },
 
     "account": {
-        "username": "niklz",
-        "ssh_key_filename": "/Users/nikita/.ssh/id_rsa",
+        "username": "als2005",
+        "ssh_key_filename": "/root/.ssh/id_ed25519",
         "port": 22
     },
 

@@ -24,9 +24,9 @@ kDemoDeploymentActions = {
     "video-analytics": {
         "benchmark_name": "video-analytics",
         "functions": {
-            "decoder": [1, 3],
-            "recog": [2, 3],
-            "streaming": [3, 3]
+            "decoder": [1, 3, 1],
+            "recog": [2, 3, 1],
+            "streaming": [3, 3, 1]
         },
         "entry_point": "streaming",
         "port": 80

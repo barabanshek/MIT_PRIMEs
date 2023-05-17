@@ -1,5 +1,5 @@
 import os
-from paramiko import SSHClient, RSAKey, AutoAddPolicy
+from paramiko import SSHClient, Ed25519Key, AutoAddPolicy
 from scp import SCPClient, SCPException
 import threading
 import time
@@ -70,7 +70,7 @@ class Env:
         self.ssh_port_ = json_data['account']['port']
 
         # Init Env
-        k = RSAKey.from_private_key_file(self.account_ssh_key_filename_)
+        k = Ed25519Key.from_private_key_file(self.account_ssh_key_filename_)
         self.ssh_client_ = SSHClient()
         self.ssh_client_.set_missing_host_key_policy(AutoAddPolicy())
         self.ssh_client_.connect([n_name for n_name, n_role in self.server_nodes_.items() if n_role == "master"][0],
@@ -146,9 +146,9 @@ class Env:
                     depl_action[1])
                 yaml_dict['spec']['template']['spec']['affinity']['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0]['matchExpressions'][0]['values'][0] = self.k_worker_hostnames_[
                     depl_action[0]]
+                yaml_dict['spec']['template']['spec']['containerConcurrency'] = int(depl_action[2])
                 with open(f'/tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}', 'w+') as f_dpl:
                     yaml.dump(yaml_dict, f_dpl)
-
             # Send config to server.
             try:
                 self.scp.put(f'/tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}',
