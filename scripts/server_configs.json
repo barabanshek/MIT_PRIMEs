@@ -1,0 +1,22 @@
+{
+    "servers": {
+        "hostnames": {
+            "hp066.utah.cloudlab.us" : "master",
+            "hp053.utah.cloudlab.us" : "worker",
+            "hp072.utah.cloudlab.us" : "worker",
+            "hp067.utah.cloudlab.us" : "worker",
+            "hp051.utah.cloudlab.us" : "worker"
+        }
+    },
+
+    "account": {
+        "username": "als2005",
+        "ssh_key_filename": "/root/.ssh/id_ed25519",
+        "port": 22
+    },
+
+    "sys": {
+        "vHive_version": "3b105486a87577c4d90ee8b229020eb100225ac5",
+        "log_filename": "server_setup.log"
+    }
+}
