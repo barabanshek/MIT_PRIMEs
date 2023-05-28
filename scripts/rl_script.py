@@ -8,24 +8,18 @@ import gym
 import json
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import seaborn as sns
 import pandas as pd
+from tqdm import tqdm
+import pickle
+
 
 import unittest
 from copy import deepcopy
-from tqdm.notebook import tqdm
 from dataclasses import dataclass
 from typing import Any
 mpl.rcParams['figure.dpi']= 100
 
 # some util functions
-def plot(logs, x_key, y_key, legend_key, **kwargs):
-    nums = len(logs[legend_key].unique())
-    palette = sns.color_palette("hls", nums)
-    if 'palette' not in kwargs:
-        kwargs['palette'] = palette
-    ax = sns.lineplot(x=x_key, y=y_key, data=logs, hue=legend_key, **kwargs)
-    return ax
 
 def set_random_seed(seed):
     np.random.seed(seed)
@@ -44,17 +38,18 @@ set_random_seed(seed=seed)
 @dataclass
 class BanditEnv:
 
-    def step(self, action):
+    def step(self, rl_env, action):
         # run and get 90th percentile latency as reward
         # action is int : -1, 0, or 1 and represents decreasing, maintaining, or increasing the current containerConcurrency
-        tail_lat = RLEnv.invoke_function(action)
-        return tail_lat
+        tail_lat = rl_env.invoke_function(action)
+        return 1/tail_lat
     
 #Code for running the bandit environment. 
 @dataclass
 class BanditEngine:
     max_steps: int
     agent: Any
+    rl_env: Any
 
     def __post_init__(self):
         self.env = BanditEnv()
@@ -67,7 +62,7 @@ class BanditEngine:
             self.agent.reset()
             for t in range(self.max_steps):
                 action = self.agent.get_action()
-                reward = self.env.step(action)
+                reward = self.env.step(self.rl_env, action)
                 self.agent.update_Q(action, reward)
                 run_actions.append(action)
                 run_rewards.append(reward)
@@ -81,12 +76,12 @@ class BanditEngine:
         return log
 
 #Code for aggregrating results of running an agent in the bandit environment. 
-def bandit_sweep(agents, labels, n_runs=2000, max_steps=500):
+def bandit_sweep(agents, rl_env, labels, n_runs=3, max_steps=20):
     logs = dict()
     pbar = tqdm(agents)
     for idx, agent in enumerate(pbar):
         pbar.set_description(f'Alg:{labels[idx]}')
-        engine = BanditEngine(max_steps=max_steps, agent=agent)
+        engine = BanditEngine(max_steps=max_steps, agent=agent, rl_env=rl_env)
         ep_log = engine.run(n_runs)
         ep_log = pd.concat(ep_log, ignore_index=True)
         ep_log['Alg'] = labels[idx]
@@ -313,9 +308,10 @@ class RLEnv:
             assert False
 
     def invoke_function(self, action):
-        for params in kDemoDeploymentActions[self.benchmark]['functions'].items():
+        for funct in kDemoDeploymentActions[self.benchmark]['functions']:
+            params = kDemoDeploymentActions[self.benchmark]['functions'][funct]
             params[2] = max(1, params[2] + action) # TODO: replace list with dict in yaml dicts
-        self.env.deploy_application(self.benchmark, kDemoDeploymentActions)
+        self.env.deploy_application(self.benchmark, kDemoDeploymentActions[self.benchmark]['functions'])
 
         (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
         self.env.invoke_application(
@@ -330,12 +326,12 @@ class RLEnv:
         tail_lat = lat_stat[(int)(len(lat_stat) * 0.90)] # 90th pct latency
         return tail_lat
     
-    
 
 def main(args):
     rl_env = RLEnv(args.serverconfig, args.rlconfig)
-    logs = bandit_sweep([rl_env.agent], ['Epsilon Greedy Agent'], n_runs=3)
-    plot(logs, logs['step'], logs['reward'], 'Alg')
+    logs = bandit_sweep([rl_env.agent], rl_env, ['Epsilon Greedy Agent'], n_runs=1)
+    with open('filename.pickle', 'wb') as handle:
+        pickle.dump(logs, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 #
 # Example cmd:
