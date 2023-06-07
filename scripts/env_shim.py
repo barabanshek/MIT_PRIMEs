@@ -141,12 +141,12 @@ class Env:
             with open(f'yamls/{self.benchmarks_[benchmark_name][fnct_name][1]}') as f:
                 yaml_dict = yaml.safe_load(f.read())
                 yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/min-scale'] = str(
-                    depl_action[1])
+                    depl_action['minMaxScale'])
                 yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/max-scale'] = str(
-                    depl_action[1])
+                    depl_action['minMaxScale'])
                 yaml_dict['spec']['template']['spec']['affinity']['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0]['matchExpressions'][0]['values'][0] = self.k_worker_hostnames_[
-                    depl_action[0]]
-                yaml_dict['spec']['template']['spec']['containerConcurrency'] = int(depl_action[2])
+                    depl_action['node']]
+                yaml_dict['spec']['template']['spec']['containerConcurrency'] = int(depl_action['containerConcurrency'])
                 with open(f'/tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}', 'w+') as f_dpl:
                     yaml.dump(yaml_dict, f_dpl)
             # Send config to server.
@@ -244,6 +244,8 @@ class Env:
     #                 'rps': 1
     #                }
     def invoke_application(self, benchmark_name, function_name, invoke_params):
+        # import pdb
+        # pdb.set_trace()
         url = self.function_urls_[function_name].replace("http://", "")
         stdin, stdout, stderr = self.ssh_client_.exec_command(
             '''echo '[ { "hostname": "''' + url + '''" } ]' > endpoints.json''')
