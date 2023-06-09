@@ -1,0 +1,5 @@
+{
+    "benchmark" : "video-analytics",
+    "duration" : 30,
+    "rps_values" : [25, 30, 35, 40]
+}
