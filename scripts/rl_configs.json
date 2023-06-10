@@ -1,7 +1,7 @@
 {
     "env_shim_demo_args": {
         "serverconfig": "server_configs.json",
-        "benchmark": "video-analytics",
+        "benchmark": "fibonacci",
         "duration": 10,
         "rps": 5
     },
