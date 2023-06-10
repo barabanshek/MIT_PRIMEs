@@ -26,9 +26,9 @@ kDemoDeploymentActions = {
     "video-analytics": {
         "benchmark_name": "video-analytics",
         "functions": {
-            "decoder": {'node' : 1, 'minMaxScale' : 5, 'containerConcurrency' : 10},
-            "recog": {'node' : 2, 'minMaxScale' : 5, 'containerConcurrency' : 10},
-            "streaming": {'node' : 3, 'minMaxScale' : 5, 'containerConcurrency' : 10}
+            "decoder": {'node' : 1, 'minMaxScale' : 5, 'containerConcurrency' : 0},
+            "recog": {'node' : 2, 'minMaxScale' : 30, 'containerConcurrency' : 0},
+            "streaming": {'node' : 3, 'minMaxScale' : 5, 'containerConcurrency' : 0}
         },
         "entry_point": "streaming",
         "port": 80
@@ -181,6 +181,7 @@ def main(args):
     duration = json_data['duration']
     benchmark = json_data['benchmark']
     rps_values = json_data['rps_values']
+    n_runs = json_data['n_runs']
 
     if args.clearprevious == 'true':
         os.remove('tail_lats.pickle')
@@ -188,9 +189,9 @@ def main(args):
 
     try:
         with open('tail_lats.pickle', 'rb') as handle:
-            tail_lat = pickle.load(handle)
+            tail_lats = pickle.load(handle)
     except:
-        tail_lat = {}
+        tail_lats = {}
 
     try:
         with open('drop_rates.pickle', 'rb') as handle:
@@ -201,32 +202,39 @@ def main(args):
 
     # Exec demo configuration.
     # Deploy.
+    ret = env.deploy_application(
+        kDemoDeploymentActions[benchmark]['benchmark_name'], kDemoDeploymentActions[benchmark]['functions'])
+    if ret == EnvStatus.ERROR:
+        assert False
     for rps in rps_values:
-        ret = env.deploy_application(
-            kDemoDeploymentActions[benchmark]['benchmark_name'], kDemoDeploymentActions[benchmark]['functions'])
-        if ret == EnvStatus.ERROR:
-            assert False
+        sample_tail_lats = []
+        sample_drop_rates = []
+        for i in range(n_runs):
 
-        # Invoke.
-        (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
-            env.invoke_application(
-                kDemoDeploymentActions[benchmark]['benchmark_name'],
-                kDemoDeploymentActions[benchmark]['entry_point'],
-                {'port': kDemoDeploymentActions[benchmark]['port'], 'duration': duration, 'rps': rps})
+            # Invoke.
+            (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
+                env.invoke_application(
+                    kDemoDeploymentActions[benchmark]['benchmark_name'],
+                    kDemoDeploymentActions[benchmark]['entry_point'],
+                    {'port': kDemoDeploymentActions[benchmark]['port'], 'duration': duration, 'rps': rps})
 
-        # Sample env.
-        env_state = env.sample_env(duration)
-        lat_stat = env.get_latencies(stat_lat_filename)
-        lat_stat.sort()
+            # Sample env.
+            env_state = env.sample_env(duration)
+            lat_stat = env.get_latencies(stat_lat_filename)
+            lat_stat.sort()
 
-        tail_lat[stat_target_rps] = lat_stat[(int)(len(lat_stat)*0.99)]
+            sample_tail_lats.append(lat_stat[(int)(len(lat_stat)*0.99)])
+            sample_drop_rates.append((stat_issued - stat_completed) / stat_issued)
+        sample_tail_lats = np.array(sample_tail_lats)
+        sample_drop_rates = np.array(sample_drop_rates)
+        tail_lats[stat_target_rps] = sample_tail_lats
+        drop_rates[stat_target_rps] = sample_drop_rates
+
         with open('tail_lats.pickle', 'wb') as handle:
-            pickle.dump(tail_lat, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(tail_lats, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        drop_rates[stat_target_rps] = (stat_issued - stat_completed) / stat_issued
         with open('drop_rates.pickle', 'wb') as handle:
             pickle.dump(drop_rates, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
 
         # Print statistics.
         print(
