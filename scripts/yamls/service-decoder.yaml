@@ -10,6 +10,7 @@ spec:
         autoscaling.knative.dev/min-scale: "<placeholder>"
         autoscaling.knative.dev/max-scale: "<placeholder>"
     spec:
+      containerConcurrency: 10
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -29,7 +30,7 @@ spec:
             - name: DecoderFrames
               value: "6"
             - name: CONCURRENT_RECOG
-              value: "false"
+              value: "true"
             - name: MAX_DECODER_SERVER_THREADS
               value: "10"
             - name: ENABLE_TRACING

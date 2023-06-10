@@ -298,7 +298,7 @@ class ServerlessDeployer:
 
 #
 # Example cmd:
-#    python3 setup_testbed.py --serverconfig server_configs.json .
+#    python3.11 setup_testbed.py --serverconfig server_configs.json
 #
 def main(args):
     deployer = ServerlessDeployer(args.serverconfig)

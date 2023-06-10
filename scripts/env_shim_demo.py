@@ -1,12 +1,15 @@
 # This is just an example for using env_shim.
 from env_shim import *
+from agent import *
+import math
+import matplotlib.pyplot as plt
 
 # Demo parameters.
 kDemoDeploymentActions = {
     "fibonacci": {
         "benchmark_name": "fibonacci",
         "functions": {
-            "fibonacci-python": [1, 10]
+            "fibonacci-python": [2, 10, 100, 50]
         },
         "entry_point": "fibonacci-python",
         "port": 80
@@ -24,9 +27,9 @@ kDemoDeploymentActions = {
     "video-analytics": {
         "benchmark_name": "video-analytics",
         "functions": {
-            "decoder": [1, 3, 1],
-            "recog": [2, 3, 1],
-            "streaming": [3, 3, 1]
+            "decoder": [1, 3, 1, 25],
+            "recog": [2, 3, 1, 25],
+            "streaming": [3, 3, 1, 25]
         },
         "entry_point": "streaming",
         "port": 80
@@ -170,43 +173,93 @@ kDemoDeploymentActions = {
     }
 }
 
-
+def plot(rewards):
+    x = []
+    for a in range(len(rewards)):
+        x.append(a)
+    plt.plot(x, rewards)
 def main(args):
+
     env = Env(args.serverconfig)
     env.enable_env()
+    agent = EpsilonGreedyAgent()
+    agent.num_actions = 3#0 for subtract 1 rps, 1 for add 0 rps, 2 for add 1 rps
+    agent.states = 20
+    agent.reset()
+    benchmark = kDemoDeploymentActions[args.benchmark]['benchmark_name'] #benchmark
+    functions = kDemoDeploymentActions[args.benchmark]['functions'] #functions
+    rewards = []
+    minmaxcontainer = 5 #initial rps
+    actiontaken = []
+    for ppp in range(int(args.numruns)):
+        print(ppp)
+        state = minmaxcontainer
+        action = agent.get_action(state) #this will be 0 or 1 2
+        minmaxcontainer += (float)(action-1)
+        actiontaken.append(minmaxcontainer)
+        if minmaxcontainer<=0:
+            minmaxcontainer = 1
+            reward = -100
+            rewards.append(reward)
+            print(reward)
+            agent.update_Q(action, state, reward)
+            continue
+        # Exec demo configuration.
+        # Deploy.
+        benchmark["functions"]["decoder"][1] = minmaxcontainer
+        benchmark["functions"]["recog"][1] = minmaxcontainer
+        benchmark["functions"]["streaming"][1] = minmaxcontainer
+        ret = env.deploy_application(benchmark, functions)
+        if ret == EnvStatus.ERROR:
+            assert False
 
-    # Exec demo configuration.
-    # Deploy.
-    ret = env.deploy_application(
-        kDemoDeploymentActions[args.benchmark]['benchmark_name'], kDemoDeploymentActions[args.benchmark]['functions'])
-    if ret == EnvStatus.ERROR:
-        assert False
+        # Invoke.
+        (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
+            env.invoke_application(
+                benchmark,
+                kDemoDeploymentActions[args.benchmark]['entry_point'],
+                {'port': kDemoDeploymentActions[args.benchmark]['port'], 'duration': args.duration, 'rps': args.rps}) #changed rps will be here
 
-    # Invoke.
-    (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
-        env.invoke_application(
-            kDemoDeploymentActions[args.benchmark]['benchmark_name'],
-            kDemoDeploymentActions[args.benchmark]['entry_point'],
-            {'port': kDemoDeploymentActions[args.benchmark]['port'], 'duration': args.duration, 'rps': args.rps})
+        # Sample env.
+        env_state = env.sample_env(args.duration)
+        lat_stat = env.get_latencies(stat_lat_filename)
+        lat_stat.sort()
 
-    # Sample env.
-    env_state = env.sample_env(args.duration)
-    lat_stat = env.get_latencies(stat_lat_filename)
-    lat_stat.sort()
 
-    # Print statistics.
-    print(
-        f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
-    print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
-    print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
-    print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
-    print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
-    print('    env_state:', env_state)
+
+        # Print statistics.
+        #print(f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
+        #print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
+        #print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
+        #print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
+        #print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
+        #print('    env_state:', env_state)
+
+        # make up a reward
+        net = 0
+        for x in range(3): #3 nodes
+            net+=abs(env_state[x+1]['net'][0]-env_state[x+1]['net'][1])
+
+        reward = -math.log10(lat_stat[(int)(len(lat_stat) * 0.9)]*net)
+        rewards.append(reward)
+        print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
+        print('netdiff', net)
+        print(reward)
+        agent.update_Q(action, state, reward)
+    
+    #graph the rewards
+
+    plot(rewards)
+    plot(actiontaken)
+    plt.show()
+
+
+
 
 
 #
 # Example cmd:
-#   python3 env_shim_demo.py --serverconfig server_configs.json --benchmark video-analytics --duration 10 --rps 5
+#   python3.11 env_shim_demo.py --serverconfig server_configs.json --benchmark video-analytics --duration 10 --rps 5 --numruns 10
 #
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -214,6 +267,22 @@ if __name__ == "__main__":
     parser.add_argument('--benchmark')
     parser.add_argument('--duration')
     parser.add_argument('--rps')
+    parser.add_argument('--numruns')
     args = parser.parse_args()
 
     main(args)
+
+
+#env_state: {
+#1: 
+#{'cpu': [0.8438888888888869, 0.127, 0.011833333333333335], 
+#'net': [645766256.0000001, 527176501.5208889], 
+#'mem': 0.950110926376932}, 
+#2: 
+#{'cpu': [0.7837777777777768, 0.18339798750000005, 0.009833333333333333], 
+#'net': [396424719.11111104, 547077626.6666667], 
+#'mem': 0.9557290834384151}, 
+#3: 
+#{'cpu': [0.9563333333333333, 0.013277777777777763, 0.012500000000000015], 
+#'net': [76926091.55555557, 39071269.333333336], 
+#'mem': 0.9623702859704296}}
