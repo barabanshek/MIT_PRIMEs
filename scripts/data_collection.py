@@ -1,6 +1,7 @@
 # This is just an example for using env_shim.
 from env_shim import *
 import pickle
+import os
 
 # Demo parameters.
 kDemoDeploymentActions = {
@@ -25,9 +26,9 @@ kDemoDeploymentActions = {
     "video-analytics": {
         "benchmark_name": "video-analytics",
         "functions": {
-            "decoder": {'node' : 1, 'minMaxScale' : 3, 'containerConcurrency' : 1},
-            "recog": {'node' : 2, 'minMaxScale' : 3, 'containerConcurrency' : 1},
-            "streaming": {'node' : 3, 'minMaxScale' : 3, 'containerConcurrency' : 1}
+            "decoder": {'node' : 1, 'minMaxScale' : 5, 'containerConcurrency' : 10},
+            "recog": {'node' : 2, 'minMaxScale' : 5, 'containerConcurrency' : 10},
+            "streaming": {'node' : 3, 'minMaxScale' : 5, 'containerConcurrency' : 10}
         },
         "entry_point": "streaming",
         "port": 80
@@ -170,10 +171,9 @@ kDemoDeploymentActions = {
         "port": 80
     }
 }
-# 90th pct latency
-tail_lat = None
 
 def main(args):
+
     env = Env(args.serverconfig)
     env.enable_env()
     with open(args.datacollectionconfig, 'r') as f:
@@ -181,6 +181,23 @@ def main(args):
     duration = json_data['duration']
     benchmark = json_data['benchmark']
     rps_values = json_data['rps_values']
+
+    if args.clearprevious == 'true':
+        os.remove('tail_lats.pickle')
+        os.remove('drop_rates.pickle')
+
+    try:
+        with open('tail_lats.pickle', 'rb') as handle:
+            tail_lat = pickle.load(handle)
+    except:
+        tail_lat = {}
+
+    try:
+        with open('drop_rates.pickle', 'rb') as handle:
+            drop_rates = pickle.load(handle)
+    except:
+        drop_rates = {}
+
 
     # Exec demo configuration.
     # Deploy.
@@ -201,21 +218,10 @@ def main(args):
         env_state = env.sample_env(duration)
         lat_stat = env.get_latencies(stat_lat_filename)
         lat_stat.sort()
-        try:
-            with open('tail_lats.pickle', 'rb') as handle:
-                tail_lat = pickle.load(handle)
-        except:
-            tail_lat = {}
 
         tail_lat[stat_target_rps] = lat_stat[(int)(len(lat_stat)*0.99)]
         with open('tail_lats.pickle', 'wb') as handle:
             pickle.dump(tail_lat, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        try:
-            with open('drop_rates.pickle', 'rb') as handle:
-                drop_rates = pickle.load(handle)
-        except:
-            drop_rates = {}
 
         drop_rates[stat_target_rps] = (stat_issued - stat_completed) / stat_issued
         with open('drop_rates.pickle', 'wb') as handle:
@@ -240,6 +246,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--serverconfig')
     parser.add_argument('--datacollectionconfig')
+    parser.add_argument('--clearprevious')
     args = parser.parse_args()
 
     main(args)
