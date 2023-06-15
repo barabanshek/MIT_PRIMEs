@@ -146,8 +146,8 @@ class Env:
                     depl_action[1])
                 yaml_dict['spec']['template']['spec']['affinity']['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0]['matchExpressions'][0]['values'][0] = self.k_worker_hostnames_[
                     depl_action[0]]
-                yaml_dict['spec']['template']['spec']['containerConcurrency'] = int(depl_action[2])
-                yaml_dict['spec']['template']['spec']['rps'] = int(depl_action[3])
+                #yaml_dict['spec']['template']['spec']['containerConcurrency'] = int(depl_action[2])
+                #yaml_dict['spec']['template']['spec']['rps'] = int(depl_action[3])
                 with open(f'/tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}', 'w+') as f_dpl:
                     yaml.dump(yaml_dict, f_dpl)
             # Send config to server.

@@ -49,7 +49,7 @@ kDemoDeploymentActions = {
     "online-shop-ad": {
         "benchmark_name": "online-shop",
         "functions": {
-            "adservice": [1, 5]
+            "adservice": [1, 3]
         },
         "entry_point": "adservice",
         "port": 80
@@ -58,7 +58,7 @@ kDemoDeploymentActions = {
     "online-shop-cart": {
         "benchmark_name": "online-shop",
         "functions": {
-            "cartservice": [1, 5]
+            "cartservice": [1, 3]
         },
         "entry_point": "cartservice",
         "port": 80
@@ -67,7 +67,7 @@ kDemoDeploymentActions = {
     "online-shop-currency": {
         "benchmark_name": "online-shop",
         "functions": {
-            "currencyservice": [3, 5]
+            "currencyservice": [3, 3]
         },
         "entry_point": "currencyservice",
         "port": 80
@@ -76,7 +76,7 @@ kDemoDeploymentActions = {
     "online-shop-email": {
         "benchmark_name": "online-shop",
         "functions": {
-            "emailservice": [2, 5]
+            "emailservice": [2, 3]
         },
         "entry_point": "emailservice",
         "port": 80
@@ -85,7 +85,7 @@ kDemoDeploymentActions = {
     "online-shop-payment": {
         "benchmark_name": "online-shop",
         "functions": {
-            "paymentservice": [4, 5]
+            "paymentservice": [4, 3]
         },
         "entry_point": "paymentservice",
         "port": 80
@@ -94,7 +94,7 @@ kDemoDeploymentActions = {
     "online-shop-productcatalogservice": {
         "benchmark_name": "online-shop",
         "functions": {
-            "productcatalogservice": [3, 5]
+            "productcatalogservice": [3, 3]
         },
         "entry_point": "productcatalogservice",
         "port": 80
@@ -103,9 +103,18 @@ kDemoDeploymentActions = {
     "online-shop-shippingservice": {
         "benchmark_name": "online-shop",
         "functions": {
-            "shippingservice": [3, 5]
+            "shippingservice": [3, 3]
         },
         "entry_point": "shippingservice",
+        "port": 80
+    },
+
+    "online-shop-checkoutservice": {
+        "benchmark_name": "online-shop",
+        "functions": {
+            "shippingservice": [3, 3]
+        },
+        "entry_point": "checkoutservice",
         "port": 80
     },
 
@@ -179,15 +188,20 @@ def plot(rewards):
     plt.plot(x, rewards)
 
 def main(args):
-
+    with open(args.filename, "w", newline = '') as file:
+        writer = csv.writer(file)
+        writer.writerow(["rps", "50%", "90%", "99%", "completerate"])
+        file.close()
     env = Env(args.serverconfig)
     env.enable_env()
     benchmark = kDemoDeploymentActions[args.benchmark]['benchmark_name'] #benchmark
     functions = kDemoDeploymentActions[args.benchmark]['functions'] #functions
-    rps = 0
-    latencies = []
-    for ppp in range(int(args.numruns)):
-        rps = ppp
+    rps = (int)(args.min)
+    fiftylatencies = 0
+    ninetylatencies = 0
+    ninetyninelatencies = 0
+
+    while rps<=(int)(args.max):
         # Exec demo configuration.
         # Deploy.
         ret = env.deploy_application(benchmark, functions)
@@ -205,32 +219,23 @@ def main(args):
         env_state = env.sample_env(args.duration)
         lat_stat = env.get_latencies(stat_lat_filename)
         lat_stat.sort()
-        latencies.append(lat_stat[(int)(len(lat_stat)*0.9)]) #90th latency
+        print(stat_real_rps)
+        print(stat_target_rps)
+        fiftylatencies = (lat_stat[(int)(len(lat_stat)*0.5)]) #50th
+        ninetylatencies = (lat_stat[(int)(len(lat_stat)*0.9)]) #90th latency
+        ninetyninelatencies = (lat_stat[(int)(len(lat_stat)*0.99)]) #99th
+        completed = str(stat_real_rps) + "/" + str(stat_target_rps)
+        with open(args.filename, "a", newline = '') as file:
+            writer = csv.writer(file)
+            writer.writerow([rps, fiftylatencies, ninetylatencies, ninetyninelatencies, completed])
+            file.close()
 
-
-        # Print statistics.
-        #print(f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
-        #print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
-        #print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
-        #print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
-        #print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
-        #print('    env_state:', env_state)
-
-        # make up a reward
-        
-    
-    #graph the rewards
-
-    plot(latencies)
-    plt.show()
-
-
-
-
+        rps+=(int)(args.step)
+            
 
 #
 # Example cmd:
-#   python3.11 env_shim_demo.py --serverconfig server_configs.json --benchmark video-analytics --duration 10 --min 10 --max 50 --jump 10
+#   python3 datacollect.py --serverconfig server_configs.json --benchmark online-shop-currency --duration 10 --min 100 --max 1000 --step 50 --filename online-shop-currency.csv
 #
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -239,7 +244,8 @@ if __name__ == "__main__":
     parser.add_argument('--duration')
     parser.add_argument('--min')
     parser.add_argument('--max')
-    parser.add_argument('--jump')
+    parser.add_argument('--step')
+    parser.add_argument('--filename')
     args = parser.parse_args()
 
     main(args)
