@@ -147,15 +147,28 @@ class Env:
             # open .yaml and change config.
             with open(f'yamls/{self.benchmarks_[benchmark_name][fnct_name][1]}') as f:
                 yaml_dict = yaml.safe_load(f.read())
-                yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/min-scale'] = str(
-                    depl_action['minMaxScale'])
-                yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/max-scale'] = str(
-                    depl_action['minMaxScale'])
-                yaml_dict['spec']['template']['spec']['affinity']['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0]['matchExpressions'][0]['values'][0] = self.k_worker_hostnames_[
-                    depl_action['node']]
-                yaml_dict['spec']['template']['spec']['containerConcurrency'] = int(depl_action['containerConcurrency'])
+                if 'containerScale' in depl_action:
+                    yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/min-scale'] = str(
+                        depl_action['containerScale'])
+                    yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/max-scale'] = str(
+                        depl_action['containerScale'])
+                else:
+                    print(f' > ERROR: failed to deploy function {fnct_name}, containerScale must be set.')
+                    return EnvStatus.ERROR
+
+                if 'node' in depl_action:
+                    yaml_dict['spec']['template']['spec']['affinity']['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0]['matchExpressions'][0]['values'][0] = self.k_worker_hostnames_[
+                        depl_action['node']]
+                else:
+                    print(f' > ERROR: failed to deploy function {fnct_name}, node must be set.')
+                    return EnvStatus.ERROR
+
+                if 'containerConcurrency' in depl_action:
+                    yaml_dict['spec']['template']['spec']['containerConcurrency'] = int(depl_action['containerConcurrency'])
+
                 with open(f'/tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}', 'w+') as f_dpl:
                     yaml.dump(yaml_dict, f_dpl)
+
             # Send config to server.
             try:
                 self.scp.put(f'/tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}',
