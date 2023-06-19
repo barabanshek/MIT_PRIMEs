@@ -1,5 +1,5 @@
 import os
-from paramiko import SSHClient, Ed25519Key, AutoAddPolicy
+from paramiko import SSHClient, Ed25519Key, RSAKey, AutoAddPolicy
 import threading
 import time
 import re
@@ -130,7 +130,14 @@ class ServerlessDeployer:
         self.ssh_clients_workers_ = []
         self.lock_ = threading.Lock()
 
-        k = Ed25519Key.from_private_key_file(self.account_ssh_key_filename_)
+        if "ed25519" in self.account_ssh_key_filename_:
+            k = Ed25519Key.from_private_key_file(self.account_ssh_key_filename_)
+        elif "id_rsa" in self.account_ssh_key_filename_:
+            k = RSAKey.from_private_key_file(self.account_ssh_key_filename_)
+        else:
+            print("Error: Unknown key type.")
+            assert False
+
         for node_name, role in self.server_nodes_.items():
             ssh_client = SSHClient()
             ssh_client.set_missing_host_key_policy(AutoAddPolicy())

@@ -1,5 +1,5 @@
 import os
-from paramiko import SSHClient, Ed25519Key, AutoAddPolicy
+from paramiko import SSHClient, Ed25519Key, RSAKey, AutoAddPolicy
 from scp import SCPClient, SCPException
 import threading
 import time
@@ -70,7 +70,14 @@ class Env:
         self.ssh_port_ = json_data['account']['port']
 
         # Init Env
-        k = Ed25519Key.from_private_key_file(self.account_ssh_key_filename_)
+        if "ed25519" in self.account_ssh_key_filename_:
+            k = Ed25519Key.from_private_key_file(self.account_ssh_key_filename_)
+        elif "id_rsa" in self.account_ssh_key_filename_:
+            k = RSAKey.from_private_key_file(self.account_ssh_key_filename_)
+        else:
+            print("Error: Unknown key type.")
+            assert False
+
         self.ssh_client_ = SSHClient()
         self.ssh_client_.set_missing_host_key_policy(AutoAddPolicy())
         self.ssh_client_.connect([n_name for n_name, n_role in self.server_nodes_.items() if n_role == "master"][0],
@@ -147,8 +154,28 @@ class Env:
                 yaml_dict['spec']['template']['spec']['affinity']['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0]['matchExpressions'][0]['values'][0] = self.k_worker_hostnames_[
                     depl_action['node']]
                 yaml_dict['spec']['template']['spec']['containerConcurrency'] = int(depl_action['containerConcurrency'])
+                if 'containerScale' in depl_action:
+                    yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/min-scale'] = str(
+                        depl_action['containerScale'])
+                    yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/max-scale'] = str(
+                        depl_action['containerScale'])
+                else:
+                    print(f' > ERROR: failed to deploy function {fnct_name}, containerScale must be set.')
+                    return EnvStatus.ERROR
+
+                if 'node' in depl_action:
+                    yaml_dict['spec']['template']['spec']['affinity']['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0]['matchExpressions'][0]['values'][0] = self.k_worker_hostnames_[
+                        depl_action['node']]
+                else:
+                    print(f' > ERROR: failed to deploy function {fnct_name}, node must be set.')
+                    return EnvStatus.ERROR
+
+                if 'containerConcurrency' in depl_action:
+                    yaml_dict['spec']['template']['spec']['containerConcurrency'] = int(depl_action['containerConcurrency'])
+
                 with open(f'/tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}', 'w+') as f_dpl:
                     yaml.dump(yaml_dict, f_dpl)
+
             # Send config to server.
             try:
                 self.scp.put(f'/tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}',
