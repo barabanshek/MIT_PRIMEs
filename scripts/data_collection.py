@@ -120,7 +120,7 @@ kDemoDeploymentActions = {
     "hotel-app-geo": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-geo": {'node' : 2, 'containerScale' : 5}
+            "hotel-app-geo": {'node' : 2, 'containerScale' : 5, 'containerConcurrency' : 0}
         },
         "entry_point": "hotel-app-geo",
         "port": 80
@@ -185,9 +185,9 @@ def main(args):
 
     if args.clearprevious == 'true':
         try:
-            os.remove('50th_tail_lats.pickle')
-            os.remove('95th_tail_lats.pickle')
-            os.remove('99th_tail_lats.pickle')
+            os.remove('tail_lats_50.pickle')
+            os.remove('tail_lats_95.pickle')
+            os.remove('tail_lats_99.pickle')
         except:
             pass
         try:
