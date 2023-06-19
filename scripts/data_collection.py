@@ -8,7 +8,7 @@ kDemoDeploymentActions = {
     "fibonacci": {
         "benchmark_name": "fibonacci",
         "functions": {
-            "fibonacci-python": {'node' : 3, 'minMaxScale' : 3, 'containerConcurrency' : 10}
+            "fibonacci-python": {'node' : 3, 'containerScale' : 3, 'containerConcurrency' : 10}
         },
         "entry_point": "fibonacci-python",
         "port": 80
@@ -17,7 +17,7 @@ kDemoDeploymentActions = {
     "fibonacci_10": {
         "benchmark_name": "fibonacci",
         "functions": {
-            "fibonacci-python": {'node' : 2, 'minMaxScale' : 10}
+            "fibonacci-python": {'node' : 2, 'containerScale' : 10}
         },
         "entry_point": "fibonacci-python",
         "port": 80
@@ -26,9 +26,9 @@ kDemoDeploymentActions = {
     "video-analytics": {
         "benchmark_name": "video-analytics",
         "functions": {
-            "decoder": {'node' : 1, 'minMaxScale' : 5, 'containerConcurrency' : 0},
-            "recog": {'node' : 2, 'minMaxScale' : 30, 'containerConcurrency' : 0},
-            "streaming": {'node' : 3, 'minMaxScale' : 5, 'containerConcurrency' : 0}
+            "decoder": {'node' : 1, 'containerScale' : 5, 'containerConcurrency' : 0},
+            "recog": {'node' : 2, 'containerScale' : 30, 'containerConcurrency' : 0},
+            "streaming": {'node' : 3, 'containerScale' : 5, 'containerConcurrency' : 0}
         },
         "entry_point": "streaming",
         "port": 80
@@ -37,9 +37,9 @@ kDemoDeploymentActions = {
     "video-analytics-same-node": {
         "benchmark_name": "video-analytics",
         "functions": {
-            "decoder": {'node' : 1, 'minMaxScale' : 3},
-            "recog": {'node' : 1, 'minMaxScale' : 3},
-            "streaming": {'node' : 1, 'minMaxScale' : 3}
+            "decoder": {'node' : 1, 'containerScale' : 3},
+            "recog": {'node' : 1, 'containerScale' : 3},
+            "streaming": {'node' : 1, 'containerScale' : 3}
         },
         "entry_point": "streaming",
         "port": 80
@@ -48,7 +48,7 @@ kDemoDeploymentActions = {
     "online-shop-ad": {
         "benchmark_name": "online-shop",
         "functions": {
-            "adservice": {'node' : 1, 'minMaxScale' : 5}
+            "adservice": {'node' : 1, 'containerScale' : 5}
         },
         "entry_point": "adservice",
         "port": 80
@@ -57,7 +57,7 @@ kDemoDeploymentActions = {
     "online-shop-cart": {
         "benchmark_name": "online-shop",
         "functions": {
-            "cartservice": {'node' : 1, 'minMaxScale' : 5}
+            "cartservice": {'node' : 1, 'containerScale' : 5}
         },
         "entry_point": "cartservice",
         "port": 80
@@ -66,7 +66,7 @@ kDemoDeploymentActions = {
     "online-shop-currency": {
         "benchmark_name": "online-shop",
         "functions": {
-            "currencyservice": {'node' : 3, 'minMaxScale' : 5}
+            "currencyservice": {'node' : 3, 'containerScale' : 5}
         },
         "entry_point": "currencyservice",
         "port": 80
@@ -75,7 +75,7 @@ kDemoDeploymentActions = {
     "online-shop-email": {
         "benchmark_name": "online-shop",
         "functions": {
-            "emailservice": {'node' : 2, 'minMaxScale' : 5}
+            "emailservice": {'node' : 2, 'containerScale' : 5}
         },
         "entry_point": "emailservice",
         "port": 80
@@ -84,7 +84,7 @@ kDemoDeploymentActions = {
     "online-shop-payment": {
         "benchmark_name": "online-shop",
         "functions": {
-            "paymentservice": {'node' : 4, 'minMaxScale' : 5}
+            "paymentservice": {'node' : 4, 'containerScale' : 5}
         },
         "entry_point": "paymentservice",
         "port": 80
@@ -93,7 +93,7 @@ kDemoDeploymentActions = {
     "online-shop-productcatalogservice": {
         "benchmark_name": "online-shop",
         "functions": {
-            "productcatalogservice": {'node' : 3, 'minMaxScale' : 5}
+            "productcatalogservice": {'node' : 3, 'containerScale' : 5}
         },
         "entry_point": "productcatalogservice",
         "port": 80
@@ -102,7 +102,7 @@ kDemoDeploymentActions = {
     "online-shop-shippingservice": {
         "benchmark_name": "online-shop",
         "functions": {
-            "shippingservice": {'node' : 3, 'minMaxScale' : 5}
+            "shippingservice": {'node' : 3, 'containerScale' : 5}
         },
         "entry_point": "shippingservice",
         "port": 80
@@ -111,7 +111,7 @@ kDemoDeploymentActions = {
     "hotel-app-geo-tracing": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-geo-tracing": {'node' : 2, 'minMaxScale' : 5}
+            "hotel-app-geo-tracing": {'node' : 2, 'containerScale' : 5}
         },
         "entry_point": "hotel-app-geo-tracing",
         "port": 80
@@ -120,7 +120,7 @@ kDemoDeploymentActions = {
     "hotel-app-geo": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-geo": {'node' : 2, 'minMaxScale' : 5}
+            "hotel-app-geo": {'node' : 2, 'containerScale' : 5}
         },
         "entry_point": "hotel-app-geo",
         "port": 80
@@ -129,7 +129,7 @@ kDemoDeploymentActions = {
     "hotel-app-profile": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-profile": {'node' : 2, 'minMaxScale' : 5}
+            "hotel-app-profile": {'node' : 2, 'containerScale' : 5}
         },
         "entry_point": "hotel-app-profile",
         "port": 80
@@ -138,7 +138,7 @@ kDemoDeploymentActions = {
     "hotel-app-rate": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-rate": {'node' : 2, 'minMaxScale' : 5}
+            "hotel-app-rate": {'node' : 2, 'containerScale' : 5}
         },
         "entry_point": "hotel-app-rate",
         "port": 80
@@ -147,7 +147,7 @@ kDemoDeploymentActions = {
     "hotel-app-recommendation": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-recommendation": {'node' : 3, 'minMaxScale' : 15}
+            "hotel-app-recommendation": {'node' : 3, 'containerScale' : 15}
         },
         "entry_point": "hotel-app-recommendation",
         "port": 80
@@ -156,7 +156,7 @@ kDemoDeploymentActions = {
     "hotel-app-reservation": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-reservation": {'node' : 2, 'minMaxScale' : 5}
+            "hotel-app-reservation": {'node' : 2, 'containerScale' : 5}
         },
         "entry_point": "hotel-app-reservation",
         "port": 80
@@ -165,7 +165,7 @@ kDemoDeploymentActions = {
     "hotel-app-user": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-user": {'node' : 2, 'minMaxScale' : 5}
+            "hotel-app-user": {'node' : 2, 'containerScale' : 5}
         },
         "entry_point": "hotel-app-user",
         "port": 80
@@ -184,21 +184,34 @@ def main(args):
     n_runs = json_data['n_runs']
 
     if args.clearprevious == 'true':
-        os.remove('tail_lats.pickle')
-        os.remove('drop_rates.pickle')
+        try:
+            os.remove('50th_tail_lats.pickle')
+            os.remove('95th_tail_lats.pickle')
+            os.remove('99th_tail_lats.pickle')
+        except:
+            pass
+        try:
+            os.remove('drop_rates.pickle')
+        except:
+            pass
 
     try:
-        with open('tail_lats.pickle', 'rb') as handle:
-            tail_lats = pickle.load(handle)
+        with open('tail_lats_50.pickle', 'rb') as handle:
+            tail_lats_50 = pickle.load(handle)
+        with open('tail_lats_95.pickle', 'rb') as handle:
+            tail_lats_95 = pickle.load(handle)
+        with open('tail_lats_99.pickle', 'rb') as handle:
+            tail_lats_99 = pickle.load(handle)
     except:
-        tail_lats = {}
+        tail_lats_50 = {}
+        tail_lats_95 = {}
+        tail_lats_99 = {}
 
     try:
         with open('drop_rates.pickle', 'rb') as handle:
             drop_rates = pickle.load(handle)
     except:
         drop_rates = {}
-
 
     # Exec demo configuration.
     # Deploy.
@@ -207,10 +220,14 @@ def main(args):
     if ret == EnvStatus.ERROR:
         assert False
     for rps in rps_values:
-        sample_tail_lats = []
+        print(f'Collecting data for {rps} RPS...')
+        sample_tail_lats_50 = []
+        sample_tail_lats_95 = []
+        sample_tail_lats_99 = []
         sample_drop_rates = []
-        for i in range(n_runs):
 
+        for i in range(n_runs):
+            print(f'Run {i+1}/{n_runs}')
             # Invoke.
             (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
                 env.invoke_application(
@@ -223,15 +240,28 @@ def main(args):
             lat_stat = env.get_latencies(stat_lat_filename)
             lat_stat.sort()
 
-            sample_tail_lats.append(lat_stat[(int)(len(lat_stat)*0.99)])
+            sample_tail_lats_50.append(lat_stat[(int)(len(lat_stat)*0.50)])
+            sample_tail_lats_95.append(lat_stat[(int)(len(lat_stat)*0.95)])
+            sample_tail_lats_99.append(lat_stat[(int)(len(lat_stat)*0.99)])
+
             sample_drop_rates.append((stat_issued - stat_completed) / stat_issued)
-        sample_tail_lats = np.array(sample_tail_lats)
+        sample_tail_lats_50 = np.array(sample_tail_lats_50)
+        sample_tail_lats_95 = np.array(sample_tail_lats_95)
+        sample_tail_lats_99 = np.array(sample_tail_lats_99)
+
         sample_drop_rates = np.array(sample_drop_rates)
-        tail_lats[stat_target_rps] = sample_tail_lats
+
+        tail_lats_50[stat_target_rps] = sample_tail_lats_50
+        tail_lats_95[stat_target_rps] = sample_tail_lats_95
+        tail_lats_99[stat_target_rps] = sample_tail_lats_99
         drop_rates[stat_target_rps] = sample_drop_rates
 
-        with open('tail_lats.pickle', 'wb') as handle:
-            pickle.dump(tail_lats, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open('tail_lats_50.pickle', 'wb') as handle:
+            pickle.dump(tail_lats_50, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open('tail_lats_95.pickle', 'wb') as handle:
+            pickle.dump(tail_lats_95, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open('tail_lats_99.pickle', 'wb') as handle:
+            pickle.dump(tail_lats_99, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         with open('drop_rates.pickle', 'wb') as handle:
             pickle.dump(drop_rates, handle, protocol=pickle.HIGHEST_PROTOCOL)
