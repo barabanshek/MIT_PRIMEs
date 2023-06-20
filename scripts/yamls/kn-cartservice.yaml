@@ -68,5 +68,5 @@ spec:
               value: "1"
             - name: DISABLE_DEBUGGER
               value: "1"
-            - name: REDIS_ADDR
+            - name: REDIS_ADDR #database kubectl apply -f ./yamls/knative/database.yaml
               value: "online-shop-database:6379"

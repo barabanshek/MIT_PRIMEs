@@ -55,7 +55,7 @@ kDemoDeploymentActions = {
         "port": 80
     },
 
-    "online-shop-cart": {
+    "online-shop-cartservice": {#doesnt work
         "benchmark_name": "online-shop",
         "functions": {
             "cartservice": [1, 3]
@@ -85,7 +85,7 @@ kDemoDeploymentActions = {
     "online-shop-payment": {
         "benchmark_name": "online-shop",
         "functions": {
-            "paymentservice": [4, 3]
+            "paymentservice": [2, 3]
         },
         "entry_point": "paymentservice",
         "port": 80
@@ -109,10 +109,10 @@ kDemoDeploymentActions = {
         "port": 80
     },
 
-    "online-shop-checkoutservice": {
+    "online-shop-checkoutservice": { #not working
         "benchmark_name": "online-shop",
         "functions": {
-            "shippingservice": [3, 3]
+            "checkoutservice": [3, 3]
         },
         "entry_point": "checkoutservice",
         "port": 80
@@ -181,11 +181,6 @@ kDemoDeploymentActions = {
         "port": 80
     }
 }
-def plot(rewards):
-    x = []
-    for a in range(len(rewards)):
-        x.append(a)
-    plt.plot(x, rewards)
 
 def main(args):
     with open(args.filename, "w", newline = '') as file:
@@ -202,46 +197,48 @@ def main(args):
     ninetyninelatencies = 0
 
     while rps<=(int)(args.max):
-        # Exec demo configuration.
-        # Deploy.
-        ret = env.deploy_application(benchmark, functions)
-        if ret == EnvStatus.ERROR:
-            assert False
+        for x in range((int)(args.numruns)):
+            # Exec demo configuration.
+            # Deploy.
+            ret = env.deploy_application(benchmark, functions)
+            if ret == EnvStatus.ERROR:
+                assert False
 
-        # Invoke.
-        (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
-            env.invoke_application(
-                benchmark,
-                kDemoDeploymentActions[args.benchmark]['entry_point'],
-                {'port': kDemoDeploymentActions[args.benchmark]['port'], 'duration': args.duration, 'rps': rps}) #changed rps will be here
+            # Invoke.
+            (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
+                env.invoke_application(
+                    benchmark,
+                    kDemoDeploymentActions[args.benchmark]['entry_point'],
+                    {'port': kDemoDeploymentActions[args.benchmark]['port'], 'duration': args.duration, 'rps': rps}) #changed rps will be here
 
-        # Sample env.
-        env_state = env.sample_env(args.duration)
-        lat_stat = env.get_latencies(stat_lat_filename)
-        lat_stat.sort()
-        print(stat_real_rps)
-        print(stat_target_rps)
-        fiftylatencies = (lat_stat[(int)(len(lat_stat)*0.5)]) #50th
-        ninetylatencies = (lat_stat[(int)(len(lat_stat)*0.9)]) #90th latency
-        ninetyninelatencies = (lat_stat[(int)(len(lat_stat)*0.99)]) #99th
-        completed = str(stat_real_rps) + "/" + str(stat_target_rps)
-        with open(args.filename, "a", newline = '') as file:
-            writer = csv.writer(file)
-            writer.writerow([rps, fiftylatencies, ninetylatencies, ninetyninelatencies, completed])
-            file.close()
+            # Sample env.
+            env_state = env.sample_env(args.duration)
+            lat_stat = env.get_latencies(stat_lat_filename)
+            lat_stat.sort()
+            print(stat_real_rps)
+            print(stat_target_rps)
+            fiftylatencies = (lat_stat[(int)(len(lat_stat)*0.5)]) #50th
+            ninetylatencies = (lat_stat[(int)(len(lat_stat)*0.9)]) #90th latency
+            ninetyninelatencies = (lat_stat[(int)(len(lat_stat)*0.99)]) #99th
+            completed = str(stat_real_rps) + "/" + str(stat_target_rps)
+            with open(args.filename, "a", newline = '') as file:
+                writer = csv.writer(file)
+                writer.writerow([rps, fiftylatencies, ninetylatencies, ninetyninelatencies, completed])
+                file.close()
 
         rps+=(int)(args.step)
             
 
 #
 # Example cmd:
-#   python3 datacollect.py --serverconfig server_configs.json --benchmark online-shop-currency --duration 10 --min 100 --max 1000 --step 50 --filename online-shop-currency.csv
+#   python3 datacollect.py --serverconfig server_configs.json --benchmark online-shop-currency --duration 10 --numruns 5 --min 1 --max 10 --step 1 --filename online-shop-currency-5.csv
 #
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--serverconfig')
     parser.add_argument('--benchmark')
     parser.add_argument('--duration')
+    parser.add_argument('--numruns')
     parser.add_argument('--min')
     parser.add_argument('--max')
     parser.add_argument('--step')
