@@ -33,20 +33,21 @@ for i, tail_lats, pct in zip(range(len(all_tail_lats)), all_tail_lats, pcts):
     xs = np.array(list(tail_lats.keys()))
     ys = np.array(list(tail_lats.values()))
 
-    avgs = {}
+    medians = {}
     uppers = {}
     lowers = {}
     print(xs)
     print(ys)
     for j in range(len(xs)):
-        avgs[xs[j]] = np.mean(ys[j])
-        uppers[xs[j]] = max(ys[j]) - avgs[xs[j]]
-        lowers[xs[j]] = avgs[xs[j]] - min(ys[j]) 
+        medians[xs[j]] = np.median(ys[j])
+        std = np.std(ys[j])
+        uppers[xs[j]] = std
+        lowers[xs[j]] = std
 
-    avg_xs = np.array(list(avgs.keys()))
-    avg_ys = np.array(list(avgs.values()))
-    errors = np.array([[lowers[avg_xs[j]], uppers[avg_xs[j]]] for j in range(len(uppers))]).T
-    ax.errorbar(avg_xs, avg_ys, yerr=errors, ecolor='r')
+    median_xs = np.array(list(medians.keys()))
+    median_ys = np.array(list(medians.values()))
+    errors = np.array([[lowers[median_xs[j]], uppers[median_xs[j]]] for j in range(len(uppers))]).T
+    ax.errorbar(median_xs, median_ys, yerr=errors, ecolor='r')
     ax.set_title(f'{pct}th percentile latencies vs. RPS')
     ax.set_ylabel(f'Average {pct}% pct latency [microseconds]')
     ax.set_xlabel('RPS')
