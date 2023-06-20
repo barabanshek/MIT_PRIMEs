@@ -1,7 +1,7 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: productcatalogservice
+  name: hotel-app-geo
   namespace: default
 spec:
   template:
@@ -20,7 +20,7 @@ spec:
                   values:
                   - <placeholder>
       containers:
-        # Relay ---
+        # Relay --------------
         - name: relay
           image: docker.io/vhiveease/relay:latest
           ports:
@@ -29,20 +29,13 @@ spec:
           args:
             - --addr=0.0.0.0:50000
             - --function-endpoint-url=0.0.0.0
-            - --function-endpoint-port=3550
-            - --function-name=productcatalogservice
-            - --generator=unique
-            - --value=loremipsum
-            - --function-method=ListProducts
-        # Function ---
+            - --function-endpoint-port=8083
+            - --function-name=geo
+
+        # Function ------------
         - name: function
-          image: docker.io/vhiveease/onlineshop-productcatalogservice:latest
-          env:
-          - name: PORT
-            value: "3550"
-          - name: DISABLE_TRACING
-            value: "1"
-          - name: DISABLE_PROFILER
-            value: "1"
-          - name: DISABLE_DEBUGGER
-            value: "1"
+          image: docker.io/vhiveease/hotel-app-geo:latest
+          args:
+            - --url=0.0.0.0
+            - --port=8083
+            - --db_addr=hotel-app-database:27017

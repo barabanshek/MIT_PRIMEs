@@ -9,7 +9,7 @@ kDemoDeploymentActions = {
     "fibonacci": {
         "benchmark_name": "fibonacci",
         "functions": {
-            "fibonacci-python": [2, 10, 100, 50]
+            "fibonacci-python": {'node' : 3, 'containerScale' : 3, 'containerConcurrency' : 10}
         },
         "entry_point": "fibonacci-python",
         "port": 80
@@ -18,7 +18,7 @@ kDemoDeploymentActions = {
     "fibonacci_10": {
         "benchmark_name": "fibonacci",
         "functions": {
-            "fibonacci-python": [2, 10]
+            "fibonacci-python": {'node' : 2, 'containerScale' : 10}
         },
         "entry_point": "fibonacci-python",
         "port": 80
@@ -27,9 +27,9 @@ kDemoDeploymentActions = {
     "video-analytics": {
         "benchmark_name": "video-analytics",
         "functions": {
-            "decoder": [1, 3, 1, 25],
-            "recog": [2, 3, 1, 25],
-            "streaming": [3, 3, 1, 25]
+            "decoder": {'node' : 1, 'containerScale' : 3, 'containerConcurrency' : 1},
+            "recog": {'node' : 2, 'containerScale' : 3, 'containerConcurrency' : 1},
+            "streaming": {'node' : 3, 'containerScale' : 3, 'containerConcurrency' : 1}
         },
         "entry_point": "streaming",
         "port": 80
@@ -38,9 +38,9 @@ kDemoDeploymentActions = {
     "video-analytics-same-node": {
         "benchmark_name": "video-analytics",
         "functions": {
-            "decoder": [1, 3],
-            "recog": [1, 3],
-            "streaming": [1, 3]
+            "decoder": {'node' : 1, 'containerScale' : 3, 'containerConcurrency' : 1},
+            "recog": {'node' : 1, 'containerScale' : 3},
+            "streaming": {'node' : 1, 'containerScale' : 3}
         },
         "entry_point": "streaming",
         "port": 80
@@ -49,7 +49,7 @@ kDemoDeploymentActions = {
     "online-shop-ad": {
         "benchmark_name": "online-shop",
         "functions": {
-            "adservice": [1, 5]
+            "adservice": {'node' : 1, 'containerScale' : 5, 'containerConcurrency' : 1}
         },
         "entry_point": "adservice",
         "port": 80
@@ -58,7 +58,7 @@ kDemoDeploymentActions = {
     "online-shop-cart": {
         "benchmark_name": "online-shop",
         "functions": {
-            "cartservice": [1, 5]
+            "cartservice": {'node' : 1, 'containerScale' : 5}
         },
         "entry_point": "cartservice",
         "port": 80
@@ -67,7 +67,7 @@ kDemoDeploymentActions = {
     "online-shop-currency": {
         "benchmark_name": "online-shop",
         "functions": {
-            "currencyservice": [3, 5]
+            "currencyservice": {'node' : 3, 'containerScale' : 5}
         },
         "entry_point": "currencyservice",
         "port": 80
@@ -76,7 +76,7 @@ kDemoDeploymentActions = {
     "online-shop-email": {
         "benchmark_name": "online-shop",
         "functions": {
-            "emailservice": [2, 5]
+            "emailservice": {'node' : 2, 'containerScale' : 5}
         },
         "entry_point": "emailservice",
         "port": 80
@@ -85,7 +85,7 @@ kDemoDeploymentActions = {
     "online-shop-payment": {
         "benchmark_name": "online-shop",
         "functions": {
-            "paymentservice": [4, 5]
+            "paymentservice": {'node' : 4, 'containerScale' : 5}
         },
         "entry_point": "paymentservice",
         "port": 80
@@ -94,7 +94,7 @@ kDemoDeploymentActions = {
     "online-shop-productcatalogservice": {
         "benchmark_name": "online-shop",
         "functions": {
-            "productcatalogservice": [3, 5]
+            "productcatalogservice": {'node' : 3, 'containerScale' : 5}
         },
         "entry_point": "productcatalogservice",
         "port": 80
@@ -103,7 +103,7 @@ kDemoDeploymentActions = {
     "online-shop-shippingservice": {
         "benchmark_name": "online-shop",
         "functions": {
-            "shippingservice": [3, 5]
+            "shippingservice": {'node' : 3, 'containerScale' : 5}
         },
         "entry_point": "shippingservice",
         "port": 80
@@ -112,7 +112,7 @@ kDemoDeploymentActions = {
     "hotel-app-geo-tracing": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-geo-tracing": [2, 5]
+            "hotel-app-geo-tracing": {'node' : 2, 'containerScale' : 5}
         },
         "entry_point": "hotel-app-geo-tracing",
         "port": 80
@@ -121,7 +121,7 @@ kDemoDeploymentActions = {
     "hotel-app-geo": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-geo": [2, 5]
+            "hotel-app-geo": {'node' : 2, 'containerScale' : 5}
         },
         "entry_point": "hotel-app-geo",
         "port": 80
@@ -130,7 +130,7 @@ kDemoDeploymentActions = {
     "hotel-app-profile": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-profile": [2, 5]
+            "hotel-app-profile": {'node' : 2, 'containerScale' : 5}
         },
         "entry_point": "hotel-app-profile",
         "port": 80
@@ -139,7 +139,7 @@ kDemoDeploymentActions = {
     "hotel-app-rate": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-rate": [2, 5]
+            "hotel-app-rate": {'node' : 2, 'containerScale' : 5}
         },
         "entry_point": "hotel-app-rate",
         "port": 80
@@ -148,7 +148,7 @@ kDemoDeploymentActions = {
     "hotel-app-recommendation": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-recommendation": [3, 15]
+            "hotel-app-recommendation": {'node' : 3, 'containerScale' : 15}
         },
         "entry_point": "hotel-app-recommendation",
         "port": 80
@@ -157,7 +157,7 @@ kDemoDeploymentActions = {
     "hotel-app-reservation": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-reservation": [2, 5]
+            "hotel-app-reservation": {'node' : 2, 'containerScale' : 5}
         },
         "entry_point": "hotel-app-reservation",
         "port": 80
@@ -166,18 +166,15 @@ kDemoDeploymentActions = {
     "hotel-app-user": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-user": [2, 5]
+            "hotel-app-user": {'node' : 2, 'containerScale' : 5}
         },
         "entry_point": "hotel-app-user",
         "port": 80
     }
 }
+# 90th pct latency
+tail_lat = None
 
-def plot(rewards):
-    x = []
-    for a in range(len(rewards)):
-        x.append(a)
-    plt.plot(x, rewards)
 def main(args):
 
     env = Env(args.serverconfig)
@@ -220,11 +217,11 @@ def main(args):
                 kDemoDeploymentActions[args.benchmark]['entry_point'],
                 {'port': kDemoDeploymentActions[args.benchmark]['port'], 'duration': args.duration, 'rps': args.rps}) #changed rps will be here
 
-        # Sample env.
-        env_state = env.sample_env(args.duration)
-        lat_stat = env.get_latencies(stat_lat_filename)
-        lat_stat.sort()
-
+    # Sample env.
+    env_state = env.sample_env(args.duration)
+    lat_stat = env.get_latencies(stat_lat_filename)
+    lat_stat.sort()
+    tail_lat = lat_stat[(int)(len(lat_stat) * 0.90)]
 
 
         # Print statistics.
@@ -236,16 +233,16 @@ def main(args):
         #print('    env_state:', env_state)
 
         # make up a reward
-        net = 0
-        for x in range(3): #3 nodes
-            net+=abs(env_state[x+1]['net'][0]-env_state[x+1]['net'][1])
+    net = 0
+    for x in range(3): #3 nodes
+        net+=abs(env_state[x+1]['net'][0]-env_state[x+1]['net'][1])
 
-        reward = -math.log10(lat_stat[(int)(len(lat_stat) * 0.9)]*net)
-        rewards.append(reward)
-        print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
-        print('netdiff', net)
-        print(reward)
-        agent.update_Q(action, state, reward)
+    reward = -math.log10(lat_stat[(int)(len(lat_stat) * 0.9)]*net)
+    rewards.append(reward)
+    print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
+    print('netdiff', net)
+    print(reward)
+    agent.update_Q(action, state, reward)
     
     #graph the rewards
 
@@ -267,7 +264,7 @@ if __name__ == "__main__":
     parser.add_argument('--benchmark')
     parser.add_argument('--duration')
     parser.add_argument('--rps')
-    parser.add_argument('--numruns')
+    # parser.add_argument('--action')
     args = parser.parse_args()
 
     main(args)
