@@ -51,7 +51,7 @@ class Env:
             "hotel-app-rate": ["~/vSwarm/benchmarks/hotel-app/yamls/knative/", "kn-rate.yaml"],
             "hotel-app-recommendation": ["~/vSwarm/benchmarks/hotel-app/yamls/knative/", "kn-recommendation.yaml"],
             "hotel-app-reservation": ["~/vSwarm/benchmarks/hotel-app/yamls/knative/", "kn-reservation.yaml"],
-            "hotel-app-user": ["~/vSwarm/benchmarks/hotel-app/yamls/knative/", "kn-user.yaml"],
+            "hotel-app-user": ["~/vSwarm/benchmarks/hotel-app/yamls/knative/", "kn-user.yaml"]
             # skipping kn-search-tracing.yaml, as it's chained
             # skipping kn-search.yaml, same
         }
@@ -142,53 +142,54 @@ class Env:
         #
         self.function_urls_ = {}
 
-        # Change .yaml deployment config for all functions.
-        for fnct_name, depl_action in deployment_actions.items():
-            # open .yaml and change config.
-            with open(f'yamls/{self.benchmarks_[benchmark_name][fnct_name][1]}') as f:
-                yaml_dict = yaml.safe_load(f.read())
-                yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/min-scale'] = str(
-                    depl_action['minMaxScale'])
-                yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/max-scale'] = str(
-                    depl_action['minMaxScale'])
-                yaml_dict['spec']['template']['spec']['affinity']['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0]['matchExpressions'][0]['values'][0] = self.k_worker_hostnames_[
-                    depl_action['node']]
-                yaml_dict['spec']['template']['spec']['containerConcurrency'] = int(depl_action['containerConcurrency'])
-                if 'containerScale' in depl_action:
+        if benchmark_name != 'database':
+            # Change .yaml deployment config for all functions.
+            for fnct_name, depl_action in deployment_actions.items():
+                # open .yaml and change config.
+                with open(f'yamls/{self.benchmarks_[benchmark_name][fnct_name][1]}') as f:
+                    yaml_dict = yaml.safe_load(f.read())
                     yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/min-scale'] = str(
                         depl_action['containerScale'])
                     yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/max-scale'] = str(
                         depl_action['containerScale'])
-                else:
-                    print(f' > ERROR: failed to deploy function {fnct_name}, containerScale must be set.')
-                    return EnvStatus.ERROR
-
-                if 'node' in depl_action:
                     yaml_dict['spec']['template']['spec']['affinity']['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0]['matchExpressions'][0]['values'][0] = self.k_worker_hostnames_[
                         depl_action['node']]
-                else:
-                    print(f' > ERROR: failed to deploy function {fnct_name}, node must be set.')
-                    return EnvStatus.ERROR
-
-                if 'containerConcurrency' in depl_action:
                     yaml_dict['spec']['template']['spec']['containerConcurrency'] = int(depl_action['containerConcurrency'])
+                    if 'containerScale' in depl_action:
+                        yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/min-scale'] = str(
+                            depl_action['containerScale'])
+                        yaml_dict['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/max-scale'] = str(
+                            depl_action['containerScale'])
+                    else:
+                        print(f' > ERROR: failed to deploy function {fnct_name}, containerScale must be set.')
+                        return EnvStatus.ERROR
 
-                with open(f'/tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}', 'w+') as f_dpl:
-                    yaml.dump(yaml_dict, f_dpl)
+                    if 'node' in depl_action:
+                        yaml_dict['spec']['template']['spec']['affinity']['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0]['matchExpressions'][0]['values'][0] = self.k_worker_hostnames_[
+                            depl_action['node']]
+                    else:
+                        print(f' > ERROR: failed to deploy function {fnct_name}, node must be set.')
+                        return EnvStatus.ERROR
 
-            # Send config to server.
-            try:
-                self.scp.put(f'/tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}',
-                             remote_path=self.benchmarks_[
-                                 benchmark_name][fnct_name][0] + self.benchmarks_[benchmark_name][fnct_name][1],
-                             recursive=False)
-                print(
-                    f' > configuration for {benchmark_name}|{fnct_name} is sent')
-            except:
-                print(
-                    f' > ERROR: failed to send configuration for {benchmark_name}|{fnct_name}')
-                return EnvStatus.ERROR
+                    if 'containerConcurrency' in depl_action:
+                        yaml_dict['spec']['template']['spec']['containerConcurrency'] = int(depl_action['containerConcurrency'])
 
+                    with open(f'/tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}', 'w+') as f_dpl:
+                        yaml.dump(yaml_dict, f_dpl)
+
+                # Send config to server.
+                try:
+                    self.scp.put(f'/tmp/{self.benchmarks_[benchmark_name][fnct_name][1]}',
+                                remote_path=self.benchmarks_[
+                                    benchmark_name][fnct_name][0] + self.benchmarks_[benchmark_name][fnct_name][1],
+                                recursive=False)
+                    print(
+                        f' > configuration for {benchmark_name}|{fnct_name} is sent')
+                except:
+                    print(
+                        f' > ERROR: failed to send configuration for {benchmark_name}|{fnct_name}')
+                    return EnvStatus.ERROR
+        
         # Delete previous deployments.
         stdin, stdout, stderr = self.ssh_client_.exec_command(
             'kn service delete --all')
@@ -206,49 +207,58 @@ class Env:
             print(
                 f' > ERROR: failed to deploy benchmark {benchmark_name}, failed to clean-up all pods')
             return EnvStatus.ERROR
-
+        
         # Deploy new benchmark (concurrently, to speed-up deployment).
-        fn_dpl_string = ""
-        if (len(deployment_actions) == 1):
-            fnct_name = list(deployment_actions.keys())[0]
-            fn_dpl_string += f'kn service apply -f {self.benchmarks_[benchmark_name][fnct_name][0] + self.benchmarks_[benchmark_name][fnct_name][1]}'
+        if benchmark_name == 'database':
+            print('Deploying database...')
+            stdin, stdout, stderr = self.ssh_client_.exec_command(f'kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/database.yaml')
+            exit_status = stdout.channel.recv_exit_status()
+            if not exit_status == 0:
+                print(
+                    f' > ERROR: failed to deploy database')
+                return EnvStatus.ERROR
         else:
+            fn_dpl_string = ""
+            if (len(deployment_actions) == 1):
+                fnct_name = list(deployment_actions.keys())[0]
+                fn_dpl_string += f'kn service apply -f {self.benchmarks_[benchmark_name][fnct_name][0] + self.benchmarks_[benchmark_name][fnct_name][1]}'
+            else:
+                for fnct_name in deployment_actions.keys():
+                    fn_dpl_string += f'kn service apply -f {self.benchmarks_[benchmark_name][fnct_name][0] + self.benchmarks_[benchmark_name][fnct_name][1]}' + ' & '
+                # 'wait' waits until all background processes are done.
+                fn_dpl_string += 'wait'
+
+            # Actual deployment.
+            stdin, stdout, stderr = self.ssh_client_.exec_command(fn_dpl_string)
+
+            # Wait until deployed.
             for fnct_name in deployment_actions.keys():
-                fn_dpl_string += f'kn service apply -f {self.benchmarks_[benchmark_name][fnct_name][0] + self.benchmarks_[benchmark_name][fnct_name][1]}' + ' & '
-            # 'wait' waits until all background processes are done.
-            fn_dpl_string += 'wait'
+                timeout_cnt = 0
+                while (True):
+                    stdin, stdout, stderr = self.ssh_client_.exec_command(
+                        f"kn service list {fnct_name} | awk '{{print $6}}' ")
+                    ret = stdout.read().decode('UTF-8').split('\n')
+                    if (ret[0] == 'READY' and ret[1] == 'OK'):
+                        print(
+                            f' > function {benchmark_name}|{fnct_name} is deployed')
+                        break
 
-        # Actual deployment.
-        stdin, stdout, stderr = self.ssh_client_.exec_command(fn_dpl_string)
+                    if timeout_cnt == self.kDeployTimeout_s_:
+                        print(
+                            f' > ERROR: failed to deploy function {benchmark_name}|{fnct_name}, timeout')
+                        return EnvStatus.ERROR
 
-        # Wait until deployed.
-        for fnct_name in deployment_actions.keys():
-            timeout_cnt = 0
-            while (True):
-                stdin, stdout, stderr = self.ssh_client_.exec_command(
-                    f"kn service list {fnct_name} | awk '{{print $6}}' ")
-                ret = stdout.read().decode('UTF-8').split('\n')
-                if (ret[0] == 'READY' and ret[1] == 'OK'):
-                    print(
-                        f' > function {benchmark_name}|{fnct_name} is deployed')
-                    break
+                    timeout_cnt += 1
+                    time.sleep(1)
 
-                if timeout_cnt == self.kDeployTimeout_s_:
-                    print(
-                        f' > ERROR: failed to deploy function {benchmark_name}|{fnct_name}, timeout')
-                    return EnvStatus.ERROR
+                url = None
+                if (timeout_cnt < self.kDeployTimeout_s_):
+                    # Get the URL of deployed function.
+                    stdin, stdout, stderr = self.ssh_client_.exec_command(
+                        f"kn service list {fnct_name} | awk '{{print $2}}' ")
+                    url = stdout.read().decode('UTF-8').split('\n')[1]
 
-                timeout_cnt += 1
-                time.sleep(1)
-
-            url = None
-            if (timeout_cnt < self.kDeployTimeout_s_):
-                # Get the URL of deployed function.
-                stdin, stdout, stderr = self.ssh_client_.exec_command(
-                    f"kn service list {fnct_name} | awk '{{print $2}}' ")
-                url = stdout.read().decode('UTF-8').split('\n')[1]
-
-                self.function_urls_[fnct_name] = url
+                    self.function_urls_[fnct_name] = url
 
         print(
             f' > all functions from {benchmark_name} are deployed: ', self.function_urls_)

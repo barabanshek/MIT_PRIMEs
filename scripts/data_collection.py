@@ -129,7 +129,7 @@ kDemoDeploymentActions = {
     "hotel-app-profile": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-profile": {'node' : 2, 'containerScale' : 5}
+            "hotel-app-profile": {'node' : 2, 'containerScale' : 5, 'containerConcurrency' : 0}
         },
         "entry_point": "hotel-app-profile",
         "port": 80
@@ -215,6 +215,10 @@ def main(args):
 
     # Exec demo configuration.
     # Deploy.
+    if 'hotel-app' in kDemoDeploymentActions[benchmark]['benchmark_name']:
+        ret = env.deploy_application('database', None)
+        if ret == EnvStatus.ERROR:
+            assert False
     ret = env.deploy_application(
         kDemoDeploymentActions[benchmark]['benchmark_name'], kDemoDeploymentActions[benchmark]['functions'])
     if ret == EnvStatus.ERROR:
