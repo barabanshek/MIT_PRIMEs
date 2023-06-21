@@ -185,22 +185,22 @@ def main(args):
 
     if args.clearprevious == 'true':
         try:
-            os.remove('tail_lats_50.pickle')
-            os.remove('tail_lats_95.pickle')
-            os.remove('tail_lats_99.pickle')
+            os.remove(f'./data/{benchmark}_tail_lats_50.pickle')
+            os.remove(f'./data/{benchmark}_tail_lats_95.pickle')
+            os.remove(f'./data/{benchmark}_tail_lats_99.pickle')
         except:
             pass
         try:
-            os.remove('drop_rates.pickle')
+            os.remove(f'./data{benchmark}_drop_rates.pickle')
         except:
             pass
 
     try:
-        with open('tail_lats_50.pickle', 'rb') as handle:
+        with open(f'./data/{benchmark}_tail_lats_50.pickle', 'rb') as handle:
             tail_lats_50 = pickle.load(handle)
-        with open('tail_lats_95.pickle', 'rb') as handle:
+        with open(f'./data/{benchmark}_tail_lats_95.pickle', 'rb') as handle:
             tail_lats_95 = pickle.load(handle)
-        with open('tail_lats_99.pickle', 'rb') as handle:
+        with open(f'./data/{benchmark}_tail_lats_99.pickle', 'rb') as handle:
             tail_lats_99 = pickle.load(handle)
     except:
         tail_lats_50 = {}
@@ -208,7 +208,7 @@ def main(args):
         tail_lats_99 = {}
 
     try:
-        with open('drop_rates.pickle', 'rb') as handle:
+        with open(f'./data{benchmark}_drop_rates.pickle', 'rb') as handle:
             drop_rates = pickle.load(handle)
     except:
         drop_rates = {}
@@ -256,14 +256,14 @@ def main(args):
         tail_lats_99[stat_target_rps] = sample_tail_lats_99
         drop_rates[stat_target_rps] = sample_drop_rates
 
-        with open('tail_lats_50.pickle', 'wb') as handle:
+        with open(f'./data/{benchmark}_tail_lats_50.pickle', 'wb') as handle:
             pickle.dump(tail_lats_50, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        with open('tail_lats_95.pickle', 'wb') as handle:
+        with open(f'./data/{benchmark}_tail_lats_95.pickle', 'wb') as handle:
             pickle.dump(tail_lats_95, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        with open('tail_lats_99.pickle', 'wb') as handle:
+        with open(f'./data/{benchmark}_tail_lats_99.pickle', 'wb') as handle:
             pickle.dump(tail_lats_99, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        with open('drop_rates.pickle', 'wb') as handle:
+        with open(f'./data{benchmark}_drop_rates.pickle', 'wb') as handle:
             pickle.dump(drop_rates, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         # Print statistics.
