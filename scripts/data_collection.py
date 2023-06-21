@@ -165,7 +165,7 @@ kDemoDeploymentActions = {
     "hotel-app-user": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-user": {'node' : 2, 'containerScale' : 5, 'containerConcurrency' : 0}
+            "hotel-app-user": {'node' : 4, 'containerScale' : 5, 'containerConcurrency' : 0}
         },
         "entry_point": "hotel-app-user",
         "port": 80
@@ -263,7 +263,7 @@ def main(args):
         with open(f'./data/{benchmark}_tail_lats_99.pickle', 'wb') as handle:
             pickle.dump(tail_lats_99, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        with open(f'./data{benchmark}_drop_rates.pickle', 'wb') as handle:
+        with open(f'./data/{benchmark}_drop_rates.pickle', 'wb') as handle:
             pickle.dump(drop_rates, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         # Print statistics.
