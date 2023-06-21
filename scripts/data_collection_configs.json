@@ -1,6 +1,6 @@
 {
-    "benchmark" : "hotel-app-reservation",
+    "benchmark" : "hotel-app-rate",
     "duration" : 30,
-    "rps_values" : [200, 400, 600],
+    "rps_values" : [10],
     "n_runs" : 5
 }
