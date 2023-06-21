@@ -36,8 +36,6 @@ for i, tail_lats, pct in zip(range(len(all_tail_lats)), all_tail_lats, pcts):
     medians = {}
     uppers = {}
     lowers = {}
-    print(xs)
-    print(ys)
     for j in range(len(xs)):
         medians[xs[j]] = np.median(ys[j])
         std = np.std(ys[j])
@@ -46,6 +44,10 @@ for i, tail_lats, pct in zip(range(len(all_tail_lats)), all_tail_lats, pcts):
 
     median_xs = np.array(list(medians.keys()))
     median_ys = np.array(list(medians.values()))
+    val_dict = {}
+    for i in range(len(median_xs)):
+        val_dict[median_xs[i]] = median_ys[i]
+    print(f'ALL {pct}th PERCENTILE MEDIAN VALUES: {val_dict}')
     errors = np.array([[lowers[median_xs[j]], uppers[median_xs[j]]] for j in range(len(uppers))]).T
     ax.errorbar(median_xs, median_ys, yerr=errors, ecolor='r')
     ax.set_title(f'{pct}th percentile latencies vs. RPS')
