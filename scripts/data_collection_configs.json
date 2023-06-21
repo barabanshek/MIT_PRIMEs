@@ -1,6 +1,6 @@
 {
-    "benchmark" : "video-analytics",
+    "benchmark" : "hotel-app-reservation",
     "duration" : 30,
-    "rps_values" : [15, 16, 17, 18, 19, 20],
+    "rps_values" : [200, 400, 600],
     "n_runs" : 5
 }
