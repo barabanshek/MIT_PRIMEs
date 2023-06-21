@@ -111,7 +111,7 @@ kDemoDeploymentActions = {
     "hotel-app-geo-tracing": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-geo-tracing": {'node' : 2, 'containerScale' : 5}
+            "hotel-app-geo-tracing": {'node' : 2, 'containerScale' : 5, 'containerConcurrency' : 0}
         },
         "entry_point": "hotel-app-geo-tracing",
         "port": 80
@@ -138,7 +138,7 @@ kDemoDeploymentActions = {
     "hotel-app-rate": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-rate": {'node' : 2, 'containerScale' : 5}
+            "hotel-app-rate": {'node' : 2, 'containerScale' : 5, 'containerConcurrency' : 0}
         },
         "entry_point": "hotel-app-rate",
         "port": 80
@@ -147,7 +147,7 @@ kDemoDeploymentActions = {
     "hotel-app-recommendation": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-recommendation": {'node' : 3, 'containerScale' : 15}
+            "hotel-app-recommendation": {'node' : 3, 'containerScale' : 15, 'containerConcurrency' : 0}
         },
         "entry_point": "hotel-app-recommendation",
         "port": 80
@@ -156,7 +156,7 @@ kDemoDeploymentActions = {
     "hotel-app-reservation": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-reservation": {'node' : 2, 'containerScale' : 5}
+            "hotel-app-reservation": {'node' : 2, 'containerScale' : 5, 'containerConcurrency' : 0}
         },
         "entry_point": "hotel-app-reservation",
         "port": 80
@@ -165,7 +165,7 @@ kDemoDeploymentActions = {
     "hotel-app-user": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-user": {'node' : 2, 'containerScale' : 5}
+            "hotel-app-user": {'node' : 2, 'containerScale' : 5, 'containerConcurrency' : 0}
         },
         "entry_point": "hotel-app-user",
         "port": 80
