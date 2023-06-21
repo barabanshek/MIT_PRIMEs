@@ -78,6 +78,11 @@ kInstallCmd_MasterSetupvSwarm = '''
 
     kubectl patch ConfigMap config-features -n knative-serving -p '{"data":{"kubernetes.podspec-affinity":"enabled"}}'
     kubectl patch ConfigMap config-features -n knative-serving -p '{"data":{"kubernetes.podspec-tolerations":"enabled"}}'
+    
+    cd ~/vSwarm/benchmarks/hotel-app/yamls
+    kubectl apply -f ./knative/database.yaml
+    kubectl apply -f ./knative/memcached.yaml
+    cd ~/vSwarm/tools/invoker
 
 '''
 
@@ -285,14 +290,14 @@ class ServerlessDeployer:
         # assert exit_status == 0, "Error during post-installation"
 
         #
-        print("Installing vSwarm...")
+        print("Installing vSwarm, deploying database and memcached...")
         _, stdout, stderr = self.ssh_clients_master_.exec_command(
             kInstallCmd_MasterSetupvSwarm)
         exit_status = stdout.channel.recv_exit_status()
         if exit_status == 0:
-            print("vSwarm is installed!")
+            print("vSwarm is installed, database and memcached deployed!")
         else:
-            print("Error when installing vSwarm, try to do it manually")
+            print("Error when installing vSwarm or deploying database and memcached, try to do it manually")
 
         #
         print("Installing Prometheus on all nodes...")

@@ -215,10 +215,6 @@ def main(args):
 
     # Exec demo configuration.
     # Deploy.
-    if 'hotel-app' in kDemoDeploymentActions[benchmark]['benchmark_name']:
-        ret = env.deploy_application('database', None)
-        if ret == EnvStatus.ERROR:
-            assert False
     ret = env.deploy_application(
         kDemoDeploymentActions[benchmark]['benchmark_name'], kDemoDeploymentActions[benchmark]['functions'])
     if ret == EnvStatus.ERROR:
