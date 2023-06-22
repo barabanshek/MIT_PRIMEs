@@ -194,7 +194,7 @@ def main(args):
                 except:
                     pass
                 try:
-                    os.remove(f'./data{benchmark}/{benchmark}_drop_rates.pickle')
+                    os.remove(f'./data/{benchmark}/{benchmark}_drop_rates.pickle')
                 except:
                     pass
 
