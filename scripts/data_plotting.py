@@ -10,13 +10,13 @@ import argparse
 def main(args):
     benchmark = args.benchmark
     sns.set_style('darkgrid')
-    with open(f'./data/{benchmark}_tail_lats_50.pickle', 'rb') as handle:
+    with open(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle', 'rb') as handle:
         tail_lats_50 = pickle.load(handle)
 
-    with open(f'./data/{benchmark}_tail_lats_95.pickle', 'rb') as handle:
+    with open(f'./data/{benchmark}/{benchmark}_tail_lats_95.pickle', 'rb') as handle:
         tail_lats_95 = pickle.load(handle)
 
-    with open(f'./data/{benchmark}_tail_lats_99.pickle', 'rb') as handle:
+    with open(f'./data/{benchmark}/{benchmark}_tail_lats_99.pickle', 'rb') as handle:
         tail_lats_99 = pickle.load(handle)
 
     tail_lats_50 = dict(sorted(tail_lats_50.items()))
@@ -36,6 +36,8 @@ def main(args):
 
         xs = np.array(list(tail_lats.keys()))
         ys = np.array(list(tail_lats.values()))
+        print(xs)
+        print(ys)
 
         medians = {}
         uppers = {}
@@ -53,16 +55,17 @@ def main(args):
             val_dict[median_xs[i]] = median_ys[i]
         print(f'ALL {pct}th PERCENTILE MEDIAN VALUES: {val_dict}')
         errors = np.array([[lowers[median_xs[j]], uppers[median_xs[j]]] for j in range(len(uppers))]).T
-        ax.errorbar(median_xs, median_ys, yerr=errors, ecolor='r')
+        # ax.errorbar(median_xs, median_ys, yerr=errors, ecolor='r')
+        ax.errorbar(median_xs, median_ys)
         ax.set_title(f'{pct}th percentile latencies vs. RPS')
         ax.set_ylabel(f'Average {pct}% pct latency [microseconds]')
         ax.set_xlabel('RPS')
 
     fig = plt.gcf()
     fig.set_size_inches(18.5, 10.5)
-    fig.suptitle('Latencies for 50th, 95th, and 99th percentiles', fontsize=20)
+    fig.suptitle(f'Latencies for 50th, 95th, and 99th percentiles for {benchmark}', fontsize=20)
 
-    plt.savefig('qos.pdf')
+    plt.savefig(f'./graphs/{benchmark}_QoS.pdf')
 
     plt.xlabel('rps')
     plt.ylabel('Average 99th pct latency [microseconds]')
