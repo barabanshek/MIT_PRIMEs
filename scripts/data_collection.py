@@ -120,7 +120,7 @@ kDemoDeploymentActions = {
     "hotel-app-geo": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-geo": {'node' : 2, 'containerScale' : 5, 'containerConcurrency' : 0}
+            "hotel-app-geo": {'node' : 2, 'containerScale' : 1, 'containerConcurrency' : 0}
         },
         "entry_point": "hotel-app-geo",
         "port": 80
@@ -129,7 +129,7 @@ kDemoDeploymentActions = {
     "hotel-app-profile": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-profile": {'node' : 2, 'containerScale' : 5, 'containerConcurrency' : 0}
+            "hotel-app-profile": {'node' : 2, 'containerScale' : 1, 'containerConcurrency' : 0}
         },
         "entry_point": "hotel-app-profile",
         "port": 80
@@ -138,7 +138,7 @@ kDemoDeploymentActions = {
     "hotel-app-rate": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-rate": {'node' : 2, 'containerScale' : 5, 'containerConcurrency' : 0}
+            "hotel-app-rate": {'node' : 2, 'containerScale' : 1, 'containerConcurrency' : 0}
         },
         "entry_point": "hotel-app-rate",
         "port": 80
@@ -147,7 +147,7 @@ kDemoDeploymentActions = {
     "hotel-app-recommendation": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-recommendation": {'node' : 3, 'containerScale' : 15, 'containerConcurrency' : 0}
+            "hotel-app-recommendation": {'node' : 3, 'containerScale' : 1, 'containerConcurrency' : 0}
         },
         "entry_point": "hotel-app-recommendation",
         "port": 80
@@ -156,7 +156,7 @@ kDemoDeploymentActions = {
     "hotel-app-reservation": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-reservation": {'node' : 2, 'containerScale' : 5, 'containerConcurrency' : 0}
+            "hotel-app-reservation": {'node' : 2, 'containerScale' : 1, 'containerConcurrency' : 0}
         },
         "entry_point": "hotel-app-reservation",
         "port": 80
@@ -165,7 +165,7 @@ kDemoDeploymentActions = {
     "hotel-app-user": {
         "benchmark_name": "hotel-app",
         "functions": {
-            "hotel-app-user": {'node' : 4, 'containerScale' : 5, 'containerConcurrency' : 0}
+            "hotel-app-user": {'node' : 4, 'containerScale' : 1, 'containerConcurrency' : 0}
         },
         "entry_point": "hotel-app-user",
         "port": 80
@@ -179,101 +179,106 @@ def main(args):
     with open(args.datacollectionconfig, 'r') as f:
         json_data = json.load(f)
     duration = json_data['duration']
-    benchmark = json_data['benchmark']
+    benchmarks = json_data['benchmarks']
     rps_values = json_data['rps_values']
     n_runs = json_data['n_runs']
 
-    if args.clearprevious == 'true':
+    for benchmark in benchmarks:
+        # if a benchmark encounters an error, skip it
         try:
-            os.remove(f'./data/{benchmark}_tail_lats_50.pickle')
-            os.remove(f'./data/{benchmark}_tail_lats_95.pickle')
-            os.remove(f'./data/{benchmark}_tail_lats_99.pickle')
+            if args.clearprevious == 'true':
+                try:
+                    os.remove(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle')
+                    os.remove(f'./data/{benchmark}/{benchmark}_tail_lats_95.pickle')
+                    os.remove(f'./data/{benchmark}/{benchmark}_tail_lats_99.pickle')
+                except:
+                    pass
+                try:
+                    os.remove(f'./data{benchmark}/{benchmark}_drop_rates.pickle')
+                except:
+                    pass
+
+            try:
+                with open(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle', 'rb') as handle:
+                    tail_lats_50 = pickle.load(handle)
+                with open(f'./data/{benchmark}/{benchmark}_tail_lats_95.pickle', 'rb') as handle:
+                    tail_lats_95 = pickle.load(handle)
+                with open(f'./data/{benchmark}/{benchmark}_tail_lats_99.pickle', 'rb') as handle:
+                    tail_lats_99 = pickle.load(handle)
+            except:
+                tail_lats_50 = {}
+                tail_lats_95 = {}
+                tail_lats_99 = {}
+
+            try:
+                with open(f'./data/{benchmark}/{benchmark}_drop_rates.pickle', 'rb') as handle:
+                    drop_rates = pickle.load(handle)
+            except:
+                drop_rates = {}
+
+            # Exec demo configuration.
+            # Deploy.
+            ret = env.deploy_application(
+                kDemoDeploymentActions[benchmark]['benchmark_name'], kDemoDeploymentActions[benchmark]['functions'])
+            if ret == EnvStatus.ERROR:
+                assert False
+            for rps in rps_values:
+                print(f'Collecting data for {rps} RPS...')
+                sample_tail_lats_50 = []
+                sample_tail_lats_95 = []
+                sample_tail_lats_99 = []
+                sample_drop_rates = []
+
+                for i in range(n_runs):
+                    print(f'Run {i+1}/{n_runs}')
+                    # Invoke.
+                    (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
+                        env.invoke_application(
+                            kDemoDeploymentActions[benchmark]['benchmark_name'],
+                            kDemoDeploymentActions[benchmark]['entry_point'],
+                            {'port': kDemoDeploymentActions[benchmark]['port'], 'duration': duration, 'rps': rps})
+
+                    # Sample env.
+                    env_state = env.sample_env(duration)
+                    lat_stat = env.get_latencies(stat_lat_filename)
+                    lat_stat.sort()
+
+                    sample_tail_lats_50.append(lat_stat[(int)(len(lat_stat)*0.50)])
+                    sample_tail_lats_95.append(lat_stat[(int)(len(lat_stat)*0.95)])
+                    sample_tail_lats_99.append(lat_stat[(int)(len(lat_stat)*0.99)])
+
+                    sample_drop_rates.append((stat_issued - stat_completed) / stat_issued)
+                sample_tail_lats_50 = np.array(sample_tail_lats_50)
+                sample_tail_lats_95 = np.array(sample_tail_lats_95)
+                sample_tail_lats_99 = np.array(sample_tail_lats_99)
+
+                sample_drop_rates = np.array(sample_drop_rates)
+
+                tail_lats_50[stat_target_rps] = sample_tail_lats_50
+                tail_lats_95[stat_target_rps] = sample_tail_lats_95
+                tail_lats_99[stat_target_rps] = sample_tail_lats_99
+                drop_rates[stat_target_rps] = sample_drop_rates
+
+                with open(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle', 'wb') as handle:
+                    pickle.dump(tail_lats_50, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                with open(f'./data/{benchmark}/{benchmark}_tail_lats_95.pickle', 'wb') as handle:
+                    pickle.dump(tail_lats_95, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                with open(f'./data/{benchmark}/{benchmark}_tail_lats_99.pickle', 'wb') as handle:
+                    pickle.dump(tail_lats_99, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+                with open(f'./data/{benchmark}/{benchmark}_drop_rates.pickle', 'wb') as handle:
+                    pickle.dump(drop_rates, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+                # Print statistics.
+                print(
+                    f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
+                print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
+                print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
+                print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
+                print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
+                print('    env_state:', env_state)
         except:
             pass
-        try:
-            os.remove(f'./data{benchmark}_drop_rates.pickle')
-        except:
-            pass
-
-    try:
-        with open(f'./data/{benchmark}_tail_lats_50.pickle', 'rb') as handle:
-            tail_lats_50 = pickle.load(handle)
-        with open(f'./data/{benchmark}_tail_lats_95.pickle', 'rb') as handle:
-            tail_lats_95 = pickle.load(handle)
-        with open(f'./data/{benchmark}_tail_lats_99.pickle', 'rb') as handle:
-            tail_lats_99 = pickle.load(handle)
-    except:
-        tail_lats_50 = {}
-        tail_lats_95 = {}
-        tail_lats_99 = {}
-
-    try:
-        with open(f'./data{benchmark}_drop_rates.pickle', 'rb') as handle:
-            drop_rates = pickle.load(handle)
-    except:
-        drop_rates = {}
-
-    # Exec demo configuration.
-    # Deploy.
-    ret = env.deploy_application(
-        kDemoDeploymentActions[benchmark]['benchmark_name'], kDemoDeploymentActions[benchmark]['functions'])
-    if ret == EnvStatus.ERROR:
-        assert False
-    for rps in rps_values:
-        print(f'Collecting data for {rps} RPS...')
-        sample_tail_lats_50 = []
-        sample_tail_lats_95 = []
-        sample_tail_lats_99 = []
-        sample_drop_rates = []
-
-        for i in range(n_runs):
-            print(f'Run {i+1}/{n_runs}')
-            # Invoke.
-            (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
-                env.invoke_application(
-                    kDemoDeploymentActions[benchmark]['benchmark_name'],
-                    kDemoDeploymentActions[benchmark]['entry_point'],
-                    {'port': kDemoDeploymentActions[benchmark]['port'], 'duration': duration, 'rps': rps})
-
-            # Sample env.
-            env_state = env.sample_env(duration)
-            lat_stat = env.get_latencies(stat_lat_filename)
-            lat_stat.sort()
-
-            sample_tail_lats_50.append(lat_stat[(int)(len(lat_stat)*0.50)])
-            sample_tail_lats_95.append(lat_stat[(int)(len(lat_stat)*0.95)])
-            sample_tail_lats_99.append(lat_stat[(int)(len(lat_stat)*0.99)])
-
-            sample_drop_rates.append((stat_issued - stat_completed) / stat_issued)
-        sample_tail_lats_50 = np.array(sample_tail_lats_50)
-        sample_tail_lats_95 = np.array(sample_tail_lats_95)
-        sample_tail_lats_99 = np.array(sample_tail_lats_99)
-
-        sample_drop_rates = np.array(sample_drop_rates)
-
-        tail_lats_50[stat_target_rps] = sample_tail_lats_50
-        tail_lats_95[stat_target_rps] = sample_tail_lats_95
-        tail_lats_99[stat_target_rps] = sample_tail_lats_99
-        drop_rates[stat_target_rps] = sample_drop_rates
-
-        with open(f'./data/{benchmark}_tail_lats_50.pickle', 'wb') as handle:
-            pickle.dump(tail_lats_50, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        with open(f'./data/{benchmark}_tail_lats_95.pickle', 'wb') as handle:
-            pickle.dump(tail_lats_95, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        with open(f'./data/{benchmark}_tail_lats_99.pickle', 'wb') as handle:
-            pickle.dump(tail_lats_99, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        with open(f'./data/{benchmark}_drop_rates.pickle', 'wb') as handle:
-            pickle.dump(drop_rates, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        # Print statistics.
-        print(
-            f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
-        print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
-        print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
-        print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
-        print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
-        print('    env_state:', env_state)
 
 
 #
