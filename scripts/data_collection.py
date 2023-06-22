@@ -184,8 +184,9 @@ def main(args):
     n_runs = json_data['n_runs']
 
     for benchmark in benchmarks:
-        # if a benchmark encounters an error, skip it
+        print(f'RUNNING BENCHMARK: {benchmark}...')
         try:
+            # if a benchmark encounters an error, skip it
             if args.clearprevious == 'true':
                 try:
                     os.remove(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle')
@@ -195,6 +196,10 @@ def main(args):
                     pass
                 try:
                     os.remove(f'./data/{benchmark}/{benchmark}_drop_rates.pickle')
+                except:
+                    pass
+                try:
+                    os.remove(f'./data/{benchmark}/{benchmark}_rps_delta.pickle')
                 except:
                     pass
 
@@ -216,6 +221,12 @@ def main(args):
             except:
                 drop_rates = {}
 
+            try:
+                with open(f'./data/{benchmark}/{benchmark}_rps_delta.pickle', 'rb') as handle:
+                    rps_deltas = pickle.load(handle)
+            except:
+                rps_deltas = {}
+
             # Exec demo configuration.
             # Deploy.
             ret = env.deploy_application(
@@ -228,6 +239,7 @@ def main(args):
                 sample_tail_lats_95 = []
                 sample_tail_lats_99 = []
                 sample_drop_rates = []
+                sample_rps_deltas = []
 
                 for i in range(n_runs):
                     print(f'Run {i+1}/{n_runs}')
@@ -248,16 +260,19 @@ def main(args):
                     sample_tail_lats_99.append(lat_stat[(int)(len(lat_stat)*0.99)])
 
                     sample_drop_rates.append((stat_issued - stat_completed) / stat_issued)
+                    sample_rps_deltas.append(stat_real_rps - stat_target_rps)
                 sample_tail_lats_50 = np.array(sample_tail_lats_50)
                 sample_tail_lats_95 = np.array(sample_tail_lats_95)
                 sample_tail_lats_99 = np.array(sample_tail_lats_99)
 
                 sample_drop_rates = np.array(sample_drop_rates)
+                sample_rps_deltas = np.array(sample_rps_deltas)
 
                 tail_lats_50[stat_target_rps] = sample_tail_lats_50
                 tail_lats_95[stat_target_rps] = sample_tail_lats_95
                 tail_lats_99[stat_target_rps] = sample_tail_lats_99
                 drop_rates[stat_target_rps] = sample_drop_rates
+                rps_deltas[stat_target_rps] = sample_rps_deltas
 
                 with open(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle', 'wb') as handle:
                     pickle.dump(tail_lats_50, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -269,6 +284,9 @@ def main(args):
                 with open(f'./data/{benchmark}/{benchmark}_drop_rates.pickle', 'wb') as handle:
                     pickle.dump(drop_rates, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+                with open(f'./data/{benchmark}/{benchmark}_rps_deltas.pickle', 'wb') as handle:
+                    pickle.dump(rps_deltas, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
                 # Print statistics.
                 print(
                     f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
@@ -277,7 +295,9 @@ def main(args):
                 print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
                 print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
                 print('    env_state:', env_state)
-        except:
+        except Exception as e:
+            print(f'> Error occurred while running {benchmark}, so it was skipped.')
+            print(f'ERROR: {e}')
             pass
 
 
