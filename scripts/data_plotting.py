@@ -65,7 +65,7 @@ def main(args):
     fig.set_size_inches(18.5, 10.5)
     fig.suptitle(f'Latencies for 50th, 95th, and 99th percentiles for {benchmark}', fontsize=20)
 
-    plt.savefig(f'./graphs/{benchmark}_QoS.pdf')
+    plt.savefig(f'./graphs/latencies/{benchmark}_QoS.pdf')
 
     plt.xlabel('rps')
     plt.ylabel('Average 99th pct latency [microseconds]')
