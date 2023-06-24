@@ -89,6 +89,11 @@ class Env:
         # Some extra vars for later use
         self.total_mem_ = None
 
+        # Vars introduced for traffic splitting
+        self.num_revisions = 0
+        self.revisions = []
+        self.function_names = []
+
     #
     def enable_env(self):
         # Enable knative to allow manual function placement.
@@ -139,7 +144,6 @@ class Env:
     #               where 'node' is the node we want to run the function on;
     #               'C' - number of function instances on that node
     def deploy_application(self, benchmark_name, deployment_actions):
-        #
         self.function_urls_ = {}
 
         # Change .yaml deployment config for all functions.
@@ -182,23 +186,23 @@ class Env:
                     f' > ERROR: failed to send configuration for {benchmark_name}|{fnct_name}')
                 return EnvStatus.ERROR
 
-        # Delete previous deployments.
-        stdin, stdout, stderr = self.ssh_client_.exec_command(
-            'kn service delete --all')
-        exit_status = stdout.channel.recv_exit_status()
-        if not exit_status == 0:
-            print(
-                f' > ERROR: failed to deploy benchmark {benchmark_name}, failed to delete prev. deployment')
-            return EnvStatus.ERROR
+        # # Delete previous deployments.
+        # stdin, stdout, stderr = self.ssh_client_.exec_command(
+        #     'kn service delete --all')
+        # exit_status = stdout.channel.recv_exit_status()
+        # if not exit_status == 0:
+        #     print(
+        #         f' > ERROR: failed to deploy benchmark {benchmark_name}, failed to delete prev. deployment')
+        #     return EnvStatus.ERROR
 
-        # Clean-up all pods.
-        stdin, stdout, stderr = self.ssh_client_.exec_command(
-            'kubectl delete pod --all --grace-period=0 --force')
-        exit_status = stdout.channel.recv_exit_status()
-        if not exit_status == 0:
-            print(
-                f' > ERROR: failed to deploy benchmark {benchmark_name}, failed to clean-up all pods')
-            return EnvStatus.ERROR
+        # # Clean-up all pods.
+        # stdin, stdout, stderr = self.ssh_client_.exec_command(
+        #     'kubectl delete pod --all --grace-period=0 --force')
+        # exit_status = stdout.channel.recv_exit_status()
+        # if not exit_status == 0:
+        #     print(
+        #         f' > ERROR: failed to deploy benchmark {benchmark_name}, failed to clean-up all pods')
+        #     return EnvStatus.ERROR
 
         # Deploy new benchmark (concurrently, to speed-up deployment).
         fn_dpl_string = ""
@@ -246,6 +250,57 @@ class Env:
         print(
             f' > all functions from {benchmark_name} are deployed: ', self.function_urls_)
         return EnvStatus.SUCCESS
+
+    def deploy_all_revisions(self, benchmark_name, deployment_actions_list):
+        self.num_revisions = len(deployment_actions_list)
+        print(self.num_revisions)
+        self.revisions = [{'config':deployment_actions_list[i], 'is_deployed': False} for i in range(len(deployment_actions_list))]
+        for deployment_action in deployment_actions_list:
+            ret = self.deploy_application(benchmark_name, deployment_action)
+            if ret == EnvStatus.ERROR:
+                print(f"Failed to deploy revision {deployment_action} ")
+            else:
+                print(f"Successfully deployed revision {deployment_action} ")
+            time.sleep(10)
+
+    def check_index(self, index):
+        if len(self.revisions) <= 0:
+            print("Environment does not have any revisions. Make sure you have called deploy_revisions() before")
+            exit(1)
+        elif len(self.revisions) <= index:
+            print(f"Environment only has {len(self.revisions)} revisions. Index {index} does not exist!")
+            exit(1) 
+        return
+
+    def get_revision(self, index):
+        self.check_index(index-1)
+        return self.revisions[index-1]
+
+    def print_revision(self, index-1):
+        self.check_index(index-1)
+        print(self.revisions[index-1])
+
+    def _format_revision_number(self, index):
+        return '0'*(5 - len(str(index))) + str(index)
+
+    def split_traffic(self, service_name, index, wait_time=2):
+        self.check_index(index-1)
+        cmd = f'kn service update {service_name}'
+        for i in range(1, self.num_revisions+1):
+            if i != index:
+                cmd += f' --traffic {service_name}-{self._format_revision_number(i)}=0'
+            else:
+                cmd += f' --traffic {service_name}-{self._format_revision_number(i)}=100'
+        print(f'Running {cmd}')
+        stdin, stdout, stderr = self.ssh_client_.exec_command(cmd)
+        exit_status = stdout.channel.recv_exit_status()
+        if not exit_status == 0:
+            print(f' > ERROR: failed to split traffic :(')
+            return EnvStatus.ERROR
+        time.sleep(wait_time)
+        return
+
+
 
     def delete_all_deployments(self):
         # Delete previous deployments.
