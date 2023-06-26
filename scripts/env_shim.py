@@ -308,15 +308,21 @@ class Env:
 
     # Fetch latency statistics.
     def get_latencies(self, latency_stat_filename):
+        # Get latency file from the server.
+        try:
+            self.scp.get(remote_path=latency_stat_filename,
+                        local_path='/tmp/',
+                        recursive=False)
+        except:
+            print(" > ERROR: failed to fetch latency statistics file from master.")
+            return []
+
+        # 
         lat = []
-        self.scp.get(remote_path=latency_stat_filename,
-                     local_path='/tmp/',
-                     recursive=False)
         with open(f'/tmp/{latency_stat_filename}') as f:
             csv_reader = csv.reader(f, delimiter=' ', quotechar='|')
             for row in csv_reader:
                 lat.append((float)(', '.join(row)))
-
         return lat
 
     # Get cluster runtime stats, such as CPU/mem/network utilization over the past @param interval_sec

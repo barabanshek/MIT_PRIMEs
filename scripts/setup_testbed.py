@@ -84,6 +84,8 @@ kInstallCmd_MasterSetupvSwarm = '''
     kubectl apply -f ./knative/memcached.yaml
     cd ~/vSwarm/tools/invoker
 
+    kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/database.yaml
+    kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/memcached.yaml
 '''
 
 kInstallCmd_Prometheus = '''
