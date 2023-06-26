@@ -1,9 +1,12 @@
 {
     "benchmarks" : 
-    [
-    "hotel-app-geo",
-    "hotel-app-recommendation"], 
+    ["hotel-app-geo",
+    "hotel-app-profile",
+    "hotel-app-rate",
+    "hotel-app-recommendation",
+    "hotel-app-reservation",
+    "hotel-app-user"], 
     "duration" : 30,
-    "rps_values" : [360, 380, 400, 420, 440, 460, 480, 500, 520, 540],
+    "rps_values" : [400, 800, 1200, 1600, 2000],
     "n_runs" : 5
 }   
