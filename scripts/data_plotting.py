@@ -58,7 +58,7 @@ def main(args):
         # ax.errorbar(median_xs, median_ys, yerr=errors, ecolor='r')
         ax.errorbar(median_xs, median_ys)
         ax.set_title(f'{pct}th percentile latencies vs. RPS')
-        ax.set_ylabel(f'Average {pct}% pct latency [microseconds]')
+        ax.set_ylabel(f'Average {pct}% pct latency [milliseconds]')
         ax.set_xlabel('RPS')
 
     fig = plt.gcf()
@@ -68,7 +68,7 @@ def main(args):
     plt.savefig(f'./graphs/latencies/{benchmark}_QoS.pdf')
 
     plt.xlabel('rps')
-    plt.ylabel('Average 99th pct latency [microseconds]')
+    plt.ylabel('Average 99th pct latency [milliseconds]')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

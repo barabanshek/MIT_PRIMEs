@@ -8,7 +8,7 @@ kDemoDeploymentActions = {
     "fibonacci": {
         "benchmark_name": "fibonacci",
         "functions": {
-            "fibonacci-python": {'node' : 3, 'containerScale' : 3, 'containerConcurrency' : 10}
+            "fibonacci-python": {'node' : 3, 'containerScale' : 30, 'containerConcurrency' : 10}
         },
         "entry_point": "fibonacci-python",
         "port": 80
@@ -255,9 +255,9 @@ def main(args):
                     lat_stat = env.get_latencies(stat_lat_filename)
                     lat_stat.sort()
 
-                    sample_tail_lats_50.append(lat_stat[(int)(len(lat_stat)*0.50)])
-                    sample_tail_lats_95.append(lat_stat[(int)(len(lat_stat)*0.95)])
-                    sample_tail_lats_99.append(lat_stat[(int)(len(lat_stat)*0.99)])
+                    sample_tail_lats_50.append(lat_stat[(int)(len(lat_stat)*0.50)]/1000)
+                    sample_tail_lats_95.append(lat_stat[(int)(len(lat_stat)*0.95)]/1000)
+                    sample_tail_lats_99.append(lat_stat[(int)(len(lat_stat)*0.99)]/1000)
 
                     sample_drop_rates.append((stat_issued - stat_completed) / stat_issued)
                     sample_rps_deltas.append(stat_real_rps - stat_target_rps)
