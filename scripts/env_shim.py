@@ -372,7 +372,6 @@ class Env:
     def sample_env(self, interval_sec):
         ret = {}
         for p_id, p_metric in self.k_worker_metrics_.items():
-            print(self.k_worker_metrics_)
             tpl = {}
 
             # CPU-related metrics
