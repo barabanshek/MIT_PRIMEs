@@ -276,7 +276,7 @@ class Env:
         self.check_index(index-1)
         return self.revisions[index-1]
 
-    def print_revision(self, index-1):
+    def print_revision(self, index):
         self.check_index(index-1)
         print(self.revisions[index-1])
 
@@ -372,6 +372,7 @@ class Env:
     def sample_env(self, interval_sec):
         ret = {}
         for p_id, p_metric in self.k_worker_metrics_.items():
+            print(self.k_worker_metrics_)
             tpl = {}
 
             # CPU-related metrics
