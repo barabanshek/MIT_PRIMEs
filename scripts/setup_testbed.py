@@ -78,11 +78,6 @@ kInstallCmd_MasterSetupvSwarm = '''
 
     kubectl patch ConfigMap config-features -n knative-serving -p '{"data":{"kubernetes.podspec-affinity":"enabled"}}'
     kubectl patch ConfigMap config-features -n knative-serving -p '{"data":{"kubernetes.podspec-tolerations":"enabled"}}'
-    
-    cd ~/vSwarm/benchmarks/hotel-app/yamls
-    kubectl apply -f ./knative/database.yaml
-    kubectl apply -f ./knative/memcached.yaml
-    cd ~/vSwarm/tools/invoker
 
     kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/database.yaml
     kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/memcached.yaml
