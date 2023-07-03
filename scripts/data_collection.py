@@ -2,6 +2,7 @@
 from env_shim import *
 import pickle
 import os
+import time as t
 
 # Demo parameters.
 kDemoDeploymentActions = {
@@ -261,6 +262,8 @@ def main(args):
 
                     sample_drop_rates.append((stat_issued - stat_completed) / stat_issued)
                     sample_rps_deltas.append(stat_real_rps - stat_target_rps)
+                    t.sleep(10)
+                
                 sample_tail_lats_50 = np.array(sample_tail_lats_50)
                 sample_tail_lats_95 = np.array(sample_tail_lats_95)
                 sample_tail_lats_99 = np.array(sample_tail_lats_99)
