@@ -1,0 +1,9 @@
+{
+    "benchmark" : "fibonacci",
+    "rps" : 300,
+    "duration" : 30,
+    "n_runs" : 3,
+    "parameter" : "containerScale",
+    "min" : 1,
+    "max" : 10
+}

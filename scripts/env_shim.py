@@ -298,6 +298,7 @@ class Env:
             print(f' > ERROR: failed to split traffic :(')
             return EnvStatus.ERROR
         time.sleep(wait_time)
+        print('traffic has been split.')
         return
 
 
