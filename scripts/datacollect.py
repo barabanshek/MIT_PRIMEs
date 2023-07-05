@@ -3,6 +3,7 @@ from env_shim import *
 from agent import *
 import math
 import matplotlib.pyplot as plt
+import json
 
 # Demo parameters.
 kDemoDeploymentActions = {
@@ -49,7 +50,7 @@ kDemoDeploymentActions = {
     "online-shop-ad": {
         "benchmark_name": "online-shop",
         "functions": {
-            "adservice": [1, 3]
+            "adservice": {'node' : 1, 'containerScale' : 3, 'containerConcurrency' : 1}
         },
         "entry_point": "adservice",
         "port": 80
@@ -58,7 +59,7 @@ kDemoDeploymentActions = {
     "online-shop-cartservice": {#doesnt work
         "benchmark_name": "online-shop",
         "functions": {
-            "cartservice": [1, 3]
+            "cartservice": {'node' : 1, 'containerScale' : 3, 'containerConcurrency' : 1}
         },
         "entry_point": "cartservice",
         "port": 80
@@ -67,7 +68,7 @@ kDemoDeploymentActions = {
     "online-shop-currency": {
         "benchmark_name": "online-shop",
         "functions": {
-            "currencyservice": [3, 3]
+            "currencyservice": {'node' : 3, 'containerScale' : 3, 'containerConcurrency' : 1}
         },
         "entry_point": "currencyservice",
         "port": 80
@@ -76,7 +77,7 @@ kDemoDeploymentActions = {
     "online-shop-email": {
         "benchmark_name": "online-shop",
         "functions": {
-            "emailservice": [2, 3]
+            "emailservice": {'node' : 2, 'containerScale' : 3, 'containerConcurrency' : 1}
         },
         "entry_point": "emailservice",
         "port": 80
@@ -85,7 +86,7 @@ kDemoDeploymentActions = {
     "online-shop-payment": {
         "benchmark_name": "online-shop",
         "functions": {
-            "paymentservice": [2, 3]
+            "paymentservice": {'node' : 2, 'containerScale' : 3, 'containerConcurrency' : 1}
         },
         "entry_point": "paymentservice",
         "port": 80
@@ -94,7 +95,7 @@ kDemoDeploymentActions = {
     "online-shop-productcatalogservice": {
         "benchmark_name": "online-shop",
         "functions": {
-            "productcatalogservice": [3, 3]
+            "productcatalogservice": {'node' : 3, 'containerScale' : 3, 'containerConcurrency' : 1}
         },
         "entry_point": "productcatalogservice",
         "port": 80
@@ -103,7 +104,7 @@ kDemoDeploymentActions = {
     "online-shop-shippingservice": {
         "benchmark_name": "online-shop",
         "functions": {
-            "shippingservice": [3, 3]
+            "shippingservice": {'node' : 3, 'containerScale' : 3,'containerConcurrency' : 1 }
         },
         "entry_point": "shippingservice",
         "port": 80
@@ -112,7 +113,7 @@ kDemoDeploymentActions = {
     "online-shop-checkoutservice": { #not working
         "benchmark_name": "online-shop",
         "functions": {
-            "checkoutservice": [3, 3]
+            "checkoutservice": {'node' : 3, 'containerScale' : 3, 'containerConcurrency' : 1}
         },
         "entry_point": "checkoutservice",
         "port": 80
@@ -183,66 +184,65 @@ kDemoDeploymentActions = {
 }
 
 def main(args):
-    with open(args.filename, "w", newline = '') as file:
-        writer = csv.writer(file)
-        writer.writerow(["rps", "50%", "90%", "99%", "completerate"])
-        file.close()
-    env = Env(args.serverconfig)
-    env.enable_env()
-    benchmark = kDemoDeploymentActions[args.benchmark]['benchmark_name'] #benchmark
-    functions = kDemoDeploymentActions[args.benchmark]['functions'] #functions
-    rps = (int)(args.min)
-    fiftylatencies = 0
-    ninetylatencies = 0
-    ninetyninelatencies = 0
+    with open(args.settings, 'r') as f:
+        settings = json.load(f)
 
-    while rps<=(int)(args.max):
-        for x in range((int)(args.numruns)):
-            # Exec demo configuration.
-            # Deploy.
-            ret = env.deploy_application(benchmark, functions)
-            if ret == EnvStatus.ERROR:
-                assert False
+    for bench in settings["benchmarks"]:
+        filename = bench + "-" + str(settings["settings"]["min"]) + "-" + str(settings["settings"]["max"]) + ".csv"
+        with open(filename, "w", newline = '') as file:
+            writer = csv.writer(file)
+            writer.writerow(["rps", "50%", "90%", "99%", "completerate"])
+            file.close()
+        env = Env(args.serverconfig)
+        env.enable_env()
+        benchmark = kDemoDeploymentActions[bench]['benchmark_name'] #benchmark
+        functions = kDemoDeploymentActions[bench]['functions'] #functions
+        rps = (int)(settings["settings"]["min"])
+        fiftylatencies = 0
+        ninetylatencies = 0
+        ninetyninelatencies = 0
 
-            # Invoke.
-            (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
-                env.invoke_application(
-                    benchmark,
-                    kDemoDeploymentActions[args.benchmark]['entry_point'],
-                    {'port': kDemoDeploymentActions[args.benchmark]['port'], 'duration': args.duration, 'rps': rps}) #changed rps will be here
+        while rps<=(int)(settings["settings"]["max"]):
+            for x in range((int)(settings["settings"]["numruns"])):
+                # Exec demo configuration.
+                # Deploy.
+                ret = env.deploy_application(benchmark, functions)
+                if ret == EnvStatus.ERROR:
+                    assert False
 
-            # Sample env.
-            env_state = env.sample_env(args.duration)
-            lat_stat = env.get_latencies(stat_lat_filename)
-            lat_stat.sort()
-            print(stat_real_rps)
-            print(stat_target_rps)
-            fiftylatencies = (lat_stat[(int)(len(lat_stat)*0.5)]) #50th
-            ninetylatencies = (lat_stat[(int)(len(lat_stat)*0.9)]) #90th latency
-            ninetyninelatencies = (lat_stat[(int)(len(lat_stat)*0.99)]) #99th
-            completed = str(stat_real_rps) + "/" + str(stat_target_rps)
-            with open(args.filename, "a", newline = '') as file:
-                writer = csv.writer(file)
-                writer.writerow([rps, fiftylatencies, ninetylatencies, ninetyninelatencies, completed])
-                file.close()
+                # Invoke.
+                (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
+                    env.invoke_application(
+                        benchmark,
+                        kDemoDeploymentActions[bench]['entry_point'],
+                        {'port': kDemoDeploymentActions[bench]['port'], 'duration': settings["settings"]["duration"], 'rps': rps}) #changed rps will be here
 
-        rps+=(int)(args.step)
-            
+                # Sample env.
+                env_state = env.sample_env(settings["settings"]["duration"])
+                lat_stat = env.get_latencies(stat_lat_filename)
+                lat_stat.sort()
+                print(stat_real_rps)
+                print(stat_target_rps)
+                fiftylatencies = (lat_stat[(int)(len(lat_stat)*0.5)]) #50th
+                ninetylatencies = (lat_stat[(int)(len(lat_stat)*0.9)]) #90th latency
+                ninetyninelatencies = (lat_stat[(int)(len(lat_stat)*0.99)]) #99th
+                completed = str(stat_real_rps) + "/" + str(stat_target_rps)
+                with open(filename, "a", newline = '') as file:
+                    writer = csv.writer(file)
+                    writer.writerow([rps, fiftylatencies, ninetylatencies, ninetyninelatencies, completed])
+                    file.close()
+
+            rps+=(int)(settings["settings"]["step"])
+                
 
 #
 # Example cmd:
-#   python3 datacollect.py --serverconfig server_configs.json --benchmark online-shop-currency --duration 10 --numruns 5 --min 1 --max 10 --step 1 --filename online-shop-currency-5.csv
+#   python3 datacollect.py --serverconfig server_configs.json --settings data_settings.json
 #
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--serverconfig')
-    parser.add_argument('--benchmark')
-    parser.add_argument('--duration')
-    parser.add_argument('--numruns')
-    parser.add_argument('--min')
-    parser.add_argument('--max')
-    parser.add_argument('--step')
-    parser.add_argument('--filename')
+    parser.add_argument('--settings')
     args = parser.parse_args()
 
     main(args)

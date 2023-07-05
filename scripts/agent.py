@@ -10,18 +10,18 @@ class EpsilonGreedyAgent:
         self.reset()
 
     def reset(self):
-        self.action_counts = np.zeros(self.num_actions, self.states, dtype=int)
-        self.Q = np.zeros(self.num_actions, self.states, dtype=float) 
+        self.action_counts = np.zeros((self.num_actions, self.states), dtype=int)
+        self.Q = np.zeros((self.num_actions, self.states), dtype=float)  
     
     def update_Q(self, action, state, reward):
-        self.action_counts[action] += 1
-        self.Q[action][state] += (1.0 / self.action_counts[action][state]) * (reward - self.Q[action][state])
+        self.action_counts[action][state] += 1
+        self.Q[action][state] += (1.0 / self.action_counts[action][state]) * (reward)
     
     def get_action(self, state):
         prob = np.random.random()
         selected_value = -1
         if prob>self.epsilon:
-            selected_value = np.random.choice(np.where(self.Q[state] == self.Q[state].max())[0])
+            selected_value = np.random.choice(np.where(self.Q[:,state] == self.Q[:,state].max())[0])
         else:
             selected_value = random.randint(0, self.num_actions-1)
         return selected_value
