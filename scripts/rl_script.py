@@ -101,7 +101,7 @@ class BanditEngine:
         return log
 
 #Code for aggregrating results of running an agent in the bandit environment. 
-def bandit_sweep(agents, rl_env, labels, n_runs=1, max_steps=50):
+def bandit_sweep(agents, rl_env, labels, n_runs=1, max_steps=400):
     logs = dict()
     pbar = tqdm(agents)
     for idx, agent in enumerate(pbar):

@@ -5,8 +5,8 @@
     "duration" : 30,
     "n_runs" : 3,
     "parameter" : "containerConcurrency",
-    "min" : 10,
-    "max" : 200,
-    "actions" : [-10, 0, 10],
-    "step_size" : 10
+    "min" : 20,
+    "max" : 400,
+    "actions" : [-20, 0, 20],
+    "step_size" : 20
 }
