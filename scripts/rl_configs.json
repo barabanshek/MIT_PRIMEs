@@ -1,0 +1,12 @@
+{
+    "benchmark" : "hotel-app-rate",
+    "services" : ["hotel-app-rate"],
+    "rps" : 400,
+    "duration" : 30,
+    "n_runs" : 3,
+    "parameter" : "containerConcurrency",
+    "min" : 1,
+    "max" : 5,
+    "actions" : [-1, 0, 1],
+    "step_size" : 1
+}
