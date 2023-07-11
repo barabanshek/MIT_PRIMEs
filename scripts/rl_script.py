@@ -70,7 +70,7 @@ class BanditEngine:
 
     def __post_init__(self):
         self.env = BanditEnv()
-        self.state = -1 # initial placeholder state
+        self.state = random.choice(range(0, 5)) # random initial state
     
     def run(self, n_runs=1):
         log = []
@@ -79,6 +79,7 @@ class BanditEngine:
             run_actions = []
             self.agent.reset()
             for t in range(self.max_steps):
+                time.sleep(1)
                 try:
                     prev_state = self.state
                     action = self.agent.get_action(self.state)
@@ -101,7 +102,7 @@ class BanditEngine:
         return log
 
 #Code for aggregrating results of running an agent in the bandit environment. 
-def bandit_sweep(agents, rl_env, labels, n_runs=1, max_steps=400):
+def bandit_sweep(agents, rl_env, labels, n_runs=1, max_steps=200):
     logs = dict()
     pbar = tqdm(agents)
     for idx, agent in enumerate(pbar):
@@ -169,6 +170,12 @@ kDemoDeploymentActions = {
     "functions": [],
     "entry_point": "streaming",
     "port": 80
+    },
+    "hotel-app-rate": {
+    "benchmark_name": "hotel-app",
+    "functions": [],
+    "entry_point": "hotel-app-rate",
+    "port": 80
     }
 }
 # 90th pct latency
@@ -199,7 +206,7 @@ class RLEnv:
         for val in range(self.min_, self.max_+self.step_size, self.step_size):
             dict_ = {}
             for i in range(len(self.services)):
-                dict_[self.services[i]] = {'node' : 1, 'containerScale' : 1, 'containerConcurrency' : val}
+                dict_[self.services[i]] = {'node' : 2, 'containerScale' : 1, 'containerConcurrency' : val}
             functions.append(dict_)
         kDemoDeploymentActions[self.benchmark]['functions'] = functions
         # Exec demo configuration.
@@ -237,7 +244,6 @@ class RLEnv:
         lat_stat.sort()
         if len(lat_stat) == 0:
             print('> ERROR: No latencies were collected. Perhaps try using a smaller RPS value if this problem persists.')
-        # tail_lat = lat_stat[(int)(len(lat_stat) * 0.90)] # 90th pct latency
 
         # printing stats
         print(
@@ -250,8 +256,11 @@ class RLEnv:
         rps_delta = np.abs(stat_real_rps - stat_target_rps)
         rps_ratio = rps_delta / stat_target_rps
         cpu_usage = env_state[self.kd_benchmark['functions'][self.revision_index][self.entry_point]['node']]['cpu'][1]
+        tail_lat = lat_stat[(int)(len(lat_stat) * 0.99)] # 99th pct latency
+        QOS_LAT = 59213
+        lat_ratio = tail_lat / QOS_LAT
 
-        return (rps_ratio, cpu_usage) # used to calculate reward and update state
+        return (lat_ratio, cpu_usage) # used to calculate reward and update state
     
 def main(args):
     wandb.init(project="rl-serverless", config={"node" : 1, "containerScale" : 1, "containerConcurrency" : 10})
