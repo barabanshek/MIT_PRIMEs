@@ -251,17 +251,23 @@ class Env:
             f' > all functions from {benchmark_name} are deployed: ', self.function_urls_)
         return EnvStatus.SUCCESS
 
-    def deploy_all_revisions(self, benchmark_name, deployment_actions_list):
+    def deploy_all_revisions(self, benchmark_name, deployment_actions_list, num_retries = 3):
         self.num_revisions = len(deployment_actions_list)
         print(self.num_revisions)
         self.revisions = [{'config':deployment_actions_list[i], 'is_deployed': False} for i in range(len(deployment_actions_list))]
         for deployment_action in deployment_actions_list:
-            ret = self.deploy_application(benchmark_name, deployment_action)
-            if ret == EnvStatus.ERROR:
-                print(f"Failed to deploy revision {deployment_action} ")
-            else:
-                print(f"Successfully deployed revision {deployment_action} ")
-            time.sleep(10)
+            deployed = False
+            for retry_num in range(num_retries):
+                ret = self.deploy_application(benchmark_name, deployment_action)
+                if ret == EnvStatus.ERROR:
+                    print(f"Retry {num_retry}: Failed to deploy revision {deployment_action} ")
+                else:
+                    print(f"Successfully deployed revision {deployment_action} ")
+                    deployed = True
+                    break
+                time.sleep(10)
+            if not deployed:
+                print(f"Failed to deploy revision {deployment_action} after {num_retries} :(")
 
     def check_index(self, index):
         if len(self.revisions) <= 0:
