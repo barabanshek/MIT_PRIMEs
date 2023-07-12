@@ -39,8 +39,8 @@ kDemoDeploymentActions = {
         "benchmark_name": "video-analytics",
         "functions": {
             "decoder": {'node' : 1, 'containerScale' : 1, 'containerConcurrency' : 0},
-            "recog": {'node' : 1, 'containerScale' : 1, 'containerConcurrency' : 0},
-            "streaming": {'node' : 1, 'containerScale' : 1, 'containerConcurrency' : 0}
+            "recog": {'node' : 1, 'containerScale' : 6, 'containerConcurrency' : 0},
+            "streaming": {'node' : 1, 'containerScale' : 3, 'containerConcurrency' : 0}
         },
         "entry_point": "streaming",
         "port": 80
@@ -243,41 +243,45 @@ def main(args):
             sample_rps_deltas = []
 
             for i in range(n_runs):
-                try:
-                    print(f'Run {i+1}/{n_runs}')
-                    # Invoke.
-                    (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
-                        env.invoke_application(
-                            kDemoDeploymentActions[benchmark]['benchmark_name'],
-                            kDemoDeploymentActions[benchmark]['entry_point'],
-                            {'port': kDemoDeploymentActions[benchmark]['port'], 'duration': duration, 'rps': rps})
+                error = True
+                while error:
+                    try:
+                        print(f'Run {i+1}/{n_runs}')
+                        # Invoke.
+                        (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
+                            env.invoke_application(
+                                kDemoDeploymentActions[benchmark]['benchmark_name'],
+                                kDemoDeploymentActions[benchmark]['entry_point'],
+                                {'port': kDemoDeploymentActions[benchmark]['port'], 'duration': duration, 'rps': rps})
 
-                    # Sample env.
-                    env_state = env.sample_env(duration)
-                    lat_stat = env.get_latencies(stat_lat_filename)
-                    lat_stat.sort()
+                        # Sample env.
+                        env_state = env.sample_env(duration)
+                        lat_stat = env.get_latencies(stat_lat_filename)
+                        lat_stat.sort()
 
-                    # Print statistics.
-                    print(
-                        f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
-                    print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
-                    print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
-                    print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
-                    print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
-                    print('    env_state:', env_state)
+                        # Print statistics.
+                        print(
+                            f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
+                        print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
+                        print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
+                        print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
+                        print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
+                        print('    env_state:', env_state)
 
-                    sample_tail_lats_50.append(lat_stat[(int)(len(lat_stat)*0.50)]/1000)
-                    sample_tail_lats_95.append(lat_stat[(int)(len(lat_stat)*0.95)]/1000)
-                    sample_tail_lats_99.append(lat_stat[(int)(len(lat_stat)*0.99)]/1000)
+                        sample_tail_lats_50.append(lat_stat[(int)(len(lat_stat)*0.50)]/1000)
+                        sample_tail_lats_95.append(lat_stat[(int)(len(lat_stat)*0.95)]/1000)
+                        sample_tail_lats_99.append(lat_stat[(int)(len(lat_stat)*0.99)]/1000)
 
-                    sample_drop_rates.append((stat_issued - stat_completed) / stat_issued)
-                    sample_rps_deltas.append(stat_real_rps - stat_target_rps)
+                        sample_drop_rates.append((stat_issued - stat_completed) / stat_issued)
+                        sample_rps_deltas.append(stat_real_rps - stat_target_rps)
+                        error = False
 
-                except Exception as err:
-                    print(f'> Error occurred while running this run.')
-                    print(f'ERROR: {err}')
-                    pass
-                t.sleep(30)
+                    except Exception as err:
+                        print(f'> Error occurred while running this run.')
+                        print(f'ERROR: {err}')
+                        error = True
+                        pass
+                    t.sleep(30)
             
             sample_tail_lats_50 = np.array(sample_tail_lats_50)
             sample_tail_lats_95 = np.array(sample_tail_lats_95)

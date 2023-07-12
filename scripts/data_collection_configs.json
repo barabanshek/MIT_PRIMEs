@@ -2,6 +2,6 @@
     "benchmarks" : 
     ["video-analytics-same-node"], 
     "duration" : 30,
-    "rps_values" : [4, 6, 8, 10, 12],
+    "rps_values" : [2, 3, 4, 5, 6, 7],
     "n_runs" : 5
 }   
