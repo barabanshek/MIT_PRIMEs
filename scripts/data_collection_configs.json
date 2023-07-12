@@ -1,7 +1,7 @@
 {
     "benchmarks" : 
-    ["hotel-app-rate"], 
+    ["video-analytics-same-node"], 
     "duration" : 30,
-    "rps_values" : [400, 800, 1200, 1600, 2000],
+    "rps_values" : [4, 6, 8, 10, 12],
     "n_runs" : 5
 }   
