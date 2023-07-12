@@ -260,7 +260,7 @@ class Env:
             for retry_num in range(num_retries):
                 ret = self.deploy_application(benchmark_name, deployment_action)
                 if ret == EnvStatus.ERROR:
-                    print(f"Retry {num_retry}: Failed to deploy revision {deployment_action} ")
+                    print(f"Retry {retry_num}: Failed to deploy revision {deployment_action} ")
                 else:
                     print(f"Successfully deployed revision {deployment_action} ")
                     deployed = True
