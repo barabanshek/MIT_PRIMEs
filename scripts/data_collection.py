@@ -38,9 +38,9 @@ kDemoDeploymentActions = {
     "video-analytics-same-node": {
         "benchmark_name": "video-analytics",
         "functions": {
-            "decoder": {'node' : 1, 'containerScale' : 3},
-            "recog": {'node' : 1, 'containerScale' : 3},
-            "streaming": {'node' : 1, 'containerScale' : 3}
+            "decoder": {'node' : 1, 'containerScale' : 1, 'containerConcurrency' : 0},
+            "recog": {'node' : 1, 'containerScale' : 1, 'containerConcurrency' : 0},
+            "streaming": {'node' : 1, 'containerScale' : 1, 'containerConcurrency' : 0}
         },
         "entry_point": "streaming",
         "port": 80
@@ -186,63 +186,64 @@ def main(args):
 
     for benchmark in benchmarks:
         print(f'RUNNING BENCHMARK: {benchmark}...')
+        # try:
+        # if a benchmark encounters an error, skip it
+        if args.clearprevious == 'true':
+            try:
+                os.remove(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle')
+                os.remove(f'./data/{benchmark}/{benchmark}_tail_lats_95.pickle')
+                os.remove(f'./data/{benchmark}/{benchmark}_tail_lats_99.pickle')
+            except:
+                pass
+            try:
+                os.remove(f'./data/{benchmark}/{benchmark}_drop_rates.pickle')
+            except:
+                pass
+            try:
+                os.remove(f'./data/{benchmark}/{benchmark}_rps_delta.pickle')
+            except:
+                pass
+
         try:
-            # if a benchmark encounters an error, skip it
-            if args.clearprevious == 'true':
+            with open(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle', 'rb') as handle:
+                tail_lats_50 = pickle.load(handle)
+            with open(f'./data/{benchmark}/{benchmark}_tail_lats_95.pickle', 'rb') as handle:
+                tail_lats_95 = pickle.load(handle)
+            with open(f'./data/{benchmark}/{benchmark}_tail_lats_99.pickle', 'rb') as handle:
+                tail_lats_99 = pickle.load(handle)
+        except:
+            tail_lats_50 = {}
+            tail_lats_95 = {}
+            tail_lats_99 = {}
+
+        try:
+            with open(f'./data/{benchmark}/{benchmark}_drop_rates.pickle', 'rb') as handle:
+                drop_rates = pickle.load(handle)
+        except:
+            drop_rates = {}
+
+        try:
+            with open(f'./data/{benchmark}/{benchmark}_rps_delta.pickle', 'rb') as handle:
+                rps_deltas = pickle.load(handle)
+        except:
+            rps_deltas = {}
+
+        # Exec demo configuration.
+        # Deploy.
+        ret = env.deploy_application(
+            kDemoDeploymentActions[benchmark]['benchmark_name'], kDemoDeploymentActions[benchmark]['functions'])
+        if ret == EnvStatus.ERROR:
+            assert False
+        for rps in rps_values:
+            print(f'Collecting data for {rps} RPS...')
+            sample_tail_lats_50 = []
+            sample_tail_lats_95 = []
+            sample_tail_lats_99 = []
+            sample_drop_rates = []
+            sample_rps_deltas = []
+
+            for i in range(n_runs):
                 try:
-                    os.remove(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle')
-                    os.remove(f'./data/{benchmark}/{benchmark}_tail_lats_95.pickle')
-                    os.remove(f'./data/{benchmark}/{benchmark}_tail_lats_99.pickle')
-                except:
-                    pass
-                try:
-                    os.remove(f'./data/{benchmark}/{benchmark}_drop_rates.pickle')
-                except:
-                    pass
-                try:
-                    os.remove(f'./data/{benchmark}/{benchmark}_rps_delta.pickle')
-                except:
-                    pass
-
-            try:
-                with open(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle', 'rb') as handle:
-                    tail_lats_50 = pickle.load(handle)
-                with open(f'./data/{benchmark}/{benchmark}_tail_lats_95.pickle', 'rb') as handle:
-                    tail_lats_95 = pickle.load(handle)
-                with open(f'./data/{benchmark}/{benchmark}_tail_lats_99.pickle', 'rb') as handle:
-                    tail_lats_99 = pickle.load(handle)
-            except:
-                tail_lats_50 = {}
-                tail_lats_95 = {}
-                tail_lats_99 = {}
-
-            try:
-                with open(f'./data/{benchmark}/{benchmark}_drop_rates.pickle', 'rb') as handle:
-                    drop_rates = pickle.load(handle)
-            except:
-                drop_rates = {}
-
-            try:
-                with open(f'./data/{benchmark}/{benchmark}_rps_delta.pickle', 'rb') as handle:
-                    rps_deltas = pickle.load(handle)
-            except:
-                rps_deltas = {}
-
-            # Exec demo configuration.
-            # Deploy.
-            ret = env.deploy_application(
-                kDemoDeploymentActions[benchmark]['benchmark_name'], kDemoDeploymentActions[benchmark]['functions'])
-            if ret == EnvStatus.ERROR:
-                assert False
-            for rps in rps_values:
-                print(f'Collecting data for {rps} RPS...')
-                sample_tail_lats_50 = []
-                sample_tail_lats_95 = []
-                sample_tail_lats_99 = []
-                sample_drop_rates = []
-                sample_rps_deltas = []
-
-                for i in range(n_runs):
                     print(f'Run {i+1}/{n_runs}')
                     # Invoke.
                     (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
@@ -256,52 +257,58 @@ def main(args):
                     lat_stat = env.get_latencies(stat_lat_filename)
                     lat_stat.sort()
 
+                    # Print statistics.
+                    print(
+                        f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
+                    print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
+                    print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
+                    print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
+                    print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
+                    print('    env_state:', env_state)
+
                     sample_tail_lats_50.append(lat_stat[(int)(len(lat_stat)*0.50)]/1000)
                     sample_tail_lats_95.append(lat_stat[(int)(len(lat_stat)*0.95)]/1000)
                     sample_tail_lats_99.append(lat_stat[(int)(len(lat_stat)*0.99)]/1000)
 
                     sample_drop_rates.append((stat_issued - stat_completed) / stat_issued)
                     sample_rps_deltas.append(stat_real_rps - stat_target_rps)
-                    t.sleep(10)
-                
-                sample_tail_lats_50 = np.array(sample_tail_lats_50)
-                sample_tail_lats_95 = np.array(sample_tail_lats_95)
-                sample_tail_lats_99 = np.array(sample_tail_lats_99)
 
-                sample_drop_rates = np.array(sample_drop_rates)
-                sample_rps_deltas = np.array(sample_rps_deltas)
+                except Exception as err:
+                    print(f'> Error occurred while running this run.')
+                    print(f'ERROR: {err}')
+                    pass
+                t.sleep(30)
+            
+            sample_tail_lats_50 = np.array(sample_tail_lats_50)
+            sample_tail_lats_95 = np.array(sample_tail_lats_95)
+            sample_tail_lats_99 = np.array(sample_tail_lats_99)
 
-                tail_lats_50[stat_target_rps] = sample_tail_lats_50
-                tail_lats_95[stat_target_rps] = sample_tail_lats_95
-                tail_lats_99[stat_target_rps] = sample_tail_lats_99
-                drop_rates[stat_target_rps] = sample_drop_rates
-                rps_deltas[stat_target_rps] = sample_rps_deltas
+            sample_drop_rates = np.array(sample_drop_rates)
+            sample_rps_deltas = np.array(sample_rps_deltas)
 
-                with open(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle', 'wb') as handle:
-                    pickle.dump(tail_lats_50, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                with open(f'./data/{benchmark}/{benchmark}_tail_lats_95.pickle', 'wb') as handle:
-                    pickle.dump(tail_lats_95, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                with open(f'./data/{benchmark}/{benchmark}_tail_lats_99.pickle', 'wb') as handle:
-                    pickle.dump(tail_lats_99, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            tail_lats_50[stat_target_rps] = sample_tail_lats_50
+            tail_lats_95[stat_target_rps] = sample_tail_lats_95
+            tail_lats_99[stat_target_rps] = sample_tail_lats_99
+            drop_rates[stat_target_rps] = sample_drop_rates
+            rps_deltas[stat_target_rps] = sample_rps_deltas
 
-                with open(f'./data/{benchmark}/{benchmark}_drop_rates.pickle', 'wb') as handle:
-                    pickle.dump(drop_rates, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            with open(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle', 'wb') as handle:
+                pickle.dump(tail_lats_50, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            with open(f'./data/{benchmark}/{benchmark}_tail_lats_95.pickle', 'wb') as handle:
+                pickle.dump(tail_lats_95, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            with open(f'./data/{benchmark}/{benchmark}_tail_lats_99.pickle', 'wb') as handle:
+                pickle.dump(tail_lats_99, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-                with open(f'./data/{benchmark}/{benchmark}_rps_deltas.pickle', 'wb') as handle:
-                    pickle.dump(rps_deltas, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            with open(f'./data/{benchmark}/{benchmark}_drop_rates.pickle', 'wb') as handle:
+                pickle.dump(drop_rates, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-                # Print statistics.
-                print(
-                    f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
-                print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
-                print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
-                print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
-                print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
-                print('    env_state:', env_state)
-        except Exception as e:
-            print(f'> Error occurred while running {benchmark}, so it was skipped.')
-            print(f'ERROR: {e}')
-            pass
+            with open(f'./data/{benchmark}/{benchmark}_rps_deltas.pickle', 'wb') as handle:
+                pickle.dump(rps_deltas, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        # except Exception as e:
+        #     print(f'> Error occurred while running {benchmark}, so it was skipped.')
+        #     print(f'ERROR: {e}')
+        #     pass
 
 
 #
