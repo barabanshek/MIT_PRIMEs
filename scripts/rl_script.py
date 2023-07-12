@@ -206,7 +206,7 @@ class RLEnv:
         for val in range(self.min_, self.max_+self.step_size, self.step_size):
             dict_ = {}
             for i in range(len(self.services)):
-                dict_[self.services[i]] = {'node' : 2, 'containerScale' : 1, 'containerConcurrency' : val}
+                dict_[self.services[i]] = {'node' : 1, 'containerScale' : 1, 'containerConcurrency' : val}
             functions.append(dict_)
         kDemoDeploymentActions[self.benchmark]['functions'] = functions
         # Exec demo configuration.
