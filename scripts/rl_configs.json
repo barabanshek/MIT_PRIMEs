@@ -1,12 +1,13 @@
 {
     "benchmark" : "video-analytics-same-node",
-    "services" : ["decoder", "recog", "streaming"],
-    "rps" : 15,
+    "services" : ["streaming", "recog", "decoder"],
+    "rps" : 4,
     "duration" : 30,
     "n_runs" : 3,
     "parameter" : "containerConcurrency",
-    "min" : 5,
-    "max" : 100,
-    "actions" : [-5, 0, 5],
-    "step_size" : 5
+    "min" : 1,
+    "max" : 20,
+    "actions" : [-1, 0, 1],
+    "step_size" : 1,
+    "node" : 1
 }

@@ -70,13 +70,14 @@ class BanditEngine:
 
     def __post_init__(self):
         self.env = BanditEnv()
-        self.state = random.choice(range(0, 5)) # random initial state
+        self.state = 0
     
     def run(self, n_runs=1):
         log = []
         for i in tqdm(range(n_runs), desc='Runs'):
             run_rewards = []
             run_actions = []
+            run_CPUs = []
             self.agent.reset()
             for t in range(self.max_steps):
                 time.sleep(1)
@@ -87,7 +88,9 @@ class BanditEngine:
                     self.agent.update_Q(prev_state, self.state, action, reward, t)
                     run_actions.append(action)
                     run_rewards.append(reward)
-                    wandb.log({"action" : action, "reward" : reward, "state" : self.state})
+                    cpu = self.rl_env.take_action(action)[1]
+                    run_CPUs.append(cpu)
+                    wandb.log({"action" : action, "reward" : reward, "state" : self.state, "CPU utilization" : cpu})
                     data = {'reward': run_rewards, 
                     'action': run_actions, 
                     'step': np.arange(len(run_rewards))}
@@ -102,7 +105,7 @@ class BanditEngine:
         return log
 
 #Code for aggregrating results of running an agent in the bandit environment. 
-def bandit_sweep(agents, rl_env, labels, n_runs=1, max_steps=200):
+def bandit_sweep(agents, rl_env, labels, n_runs=1, max_steps=10):
     logs = dict()
     pbar = tqdm(agents)
     for idx, agent in enumerate(pbar):
@@ -197,16 +200,22 @@ class RLEnv:
         self.actions = json_data['actions']
         self.step_size = json_data['step_size']
         self.services = json_data['services']
+        self.node = json_data['node']
         self.revision_index = 0
         self.agent = EpsilonGreedyAgent(num_actions=len(self.actions))
         self.env = Env(server_configs_json)
+        self.all_params = ['containerScale', 'containerConcurrency']
+        self.default_param_vals = [1, 10]
         self.env.enable_env()
 
         functions = []
         for val in range(self.min_, self.max_+self.step_size, self.step_size):
             dict_ = {}
             for i in range(len(self.services)):
-                dict_[self.services[i]] = {'node' : 1, 'containerScale' : 1, 'containerConcurrency' : val}
+                dict_[self.services[i]] = {'node' : self.node, self.param : val}
+                for j in range(len(self.all_params)):
+                    if self.all_params[j] != self.param:
+                        dict_[self.services[i]][self.all_params[j]] = self.default_param_vals[j]
             functions.append(dict_)
         kDemoDeploymentActions[self.benchmark]['functions'] = functions
         # Exec demo configuration.
@@ -257,7 +266,7 @@ class RLEnv:
         rps_ratio = rps_delta / stat_target_rps
         cpu_usage = env_state[self.kd_benchmark['functions'][self.revision_index][self.entry_point]['node']]['cpu'][1]
         tail_lat = lat_stat[(int)(len(lat_stat) * 0.99)] # 99th pct latency
-        QOS_LAT = 59213
+        QOS_LAT = 4000000
         lat_ratio = tail_lat / QOS_LAT
 
         return (lat_ratio, cpu_usage) # used to calculate reward and update state
