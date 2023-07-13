@@ -143,7 +143,7 @@ class Env:
     #   {"function_name": [node, C]},
     #               where 'node' is the node we want to run the function on;
     #               'C' - number of function instances on that node
-    def deploy_application(self, benchmark_name, deployment_actions):
+    def deploy_application(self, benchmark_name, deployment_actions, wait_time=10):
         self.function_urls_ = {}
 
         # Change .yaml deployment config for all functions.
@@ -185,6 +185,7 @@ class Env:
                 print(
                     f' > ERROR: failed to send configuration for {benchmark_name}|{fnct_name}')
                 return EnvStatus.ERROR
+            time.sleep(wait_time)
 
         # # Delete previous deployments.
         # stdin, stdout, stderr = self.ssh_client_.exec_command(
