@@ -143,7 +143,7 @@ class Env:
     #   {"function_name": [node, C]},
     #               where 'node' is the node we want to run the function on;
     #               'C' - number of function instances on that node
-    def deploy_application(self, benchmark_name, deployment_actions, wait_time=10):
+    def deploy_application(self, benchmark_name, deployment_actions, wait_time=5):
         self.function_urls_ = {}
 
         # Change .yaml deployment config for all functions.
@@ -185,7 +185,7 @@ class Env:
                 print(
                     f' > ERROR: failed to send configuration for {benchmark_name}|{fnct_name}')
                 return EnvStatus.ERROR
-            time.sleep(wait_time)
+
 
         # # Delete previous deployments.
         # stdin, stdout, stderr = self.ssh_client_.exec_command(
@@ -220,7 +220,11 @@ class Env:
         stdin, stdout, stderr = self.ssh_client_.exec_command(fn_dpl_string)
 
         # Wait until deployed.
-        for fnct_name in deployment_actions.keys():
+        for fnct_name, depl_action in deployment_actions.items():
+            if 'containerScale' in depl_action:
+                containerScale = depl_action['containerScale']
+            else:
+                containerScale = 1
             timeout_cnt = 0
             while (True):
                 stdin, stdout, stderr = self.ssh_client_.exec_command(
@@ -237,7 +241,6 @@ class Env:
                     return EnvStatus.ERROR
 
                 timeout_cnt += 1
-                time.sleep(1)
 
             url = None
             if (timeout_cnt < self.kDeployTimeout_s_):
@@ -247,7 +250,8 @@ class Env:
                 url = stdout.read().decode('UTF-8').split('\n')[1]
 
                 self.function_urls_[fnct_name] = url
-
+            print(f" > Giving time for containers to create ({wait_time*containerScale} seconds)...")
+            time.sleep(wait_time*containerScale)
         print(
             f' > all functions from {benchmark_name} are deployed: ', self.function_urls_)
         return EnvStatus.SUCCESS
