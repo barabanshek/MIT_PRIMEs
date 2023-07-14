@@ -34,13 +34,13 @@ def calculate_reward(r):
 
 # discretize state variable
 def calculate_state(s):
-    if s > 0.80:
+    if s > 0.08:
         return 4
-    elif s > 0.60:
+    elif s > 0.06:
         return 3
-    elif s > 0.40:
+    elif s > 0.04:
         return 2
-    elif s > 0.20:
+    elif s > 0.02:
         return 1
     else:
         return 0
