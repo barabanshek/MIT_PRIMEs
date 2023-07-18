@@ -1,13 +1,14 @@
 {
-    "benchmark" : "fibonacci",
-    "services" : ["fibonacci-python"],
-    "rps" : 400,
+    "benchmark" : "video-analytics-same-node",
+    "services" : ["streaming", "decoder", "recog"],
+    "rps" : 4,
     "duration" : 30,
     "n_runs" : 3,
-    "parameter" : "containerScale",
-    "min" : 1,
-    "max" : 10,
-    "actions" : [-1, 0, 1],
-    "step_size" : 1,
-    "node" : 1
+    "parameter" : "containerConcurrency",
+    "min" : 400,
+    "max" : 450,
+    "actions" : [-5, 0, 5],
+    "step_size" : 5,
+    "node" : 2,
+    "steps" : 10
 }
