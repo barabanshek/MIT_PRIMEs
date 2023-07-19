@@ -135,6 +135,25 @@ class Env:
         print("   knative worker node names: ", self.k_worker_hostnames_)
         print("   knative #of available metrics for workers: ", {
               k: len(v.all_metrics()) for k, v in self.k_worker_metrics_.items()})
+        
+
+        # Delete previous deployments.
+        stdin, stdout, stderr = self.ssh_client_.exec_command(
+            'kn service delete --all')
+        exit_status = stdout.channel.recv_exit_status()
+        if not exit_status == 0:
+            print(
+                f' > ERROR: failed to deploy benchmarks, failed to delete prev. deployment')
+            return EnvStatus.ERROR
+
+        # Clean-up all pods.
+        stdin, stdout, stderr = self.ssh_client_.exec_command(
+            'kubectl delete pod --all --grace-period=0 --force')
+        exit_status = stdout.channel.recv_exit_status()
+        if not exit_status == 0:
+            print(
+                f' > ERROR: failed to deploy benchmarks, failed to clean-up all pods')
+            return EnvStatus.ERROR
 
     def get_worker_num(self):
         return len(self.k_worker_hostnames_)
@@ -186,24 +205,6 @@ class Env:
                     f' > ERROR: failed to send configuration for {benchmark_name}|{fnct_name}')
                 return EnvStatus.ERROR
 
-
-        # # Delete previous deployments.
-        # stdin, stdout, stderr = self.ssh_client_.exec_command(
-        #     'kn service delete --all')
-        # exit_status = stdout.channel.recv_exit_status()
-        # if not exit_status == 0:
-        #     print(
-        #         f' > ERROR: failed to deploy benchmark {benchmark_name}, failed to delete prev. deployment')
-        #     return EnvStatus.ERROR
-
-        # # Clean-up all pods.
-        # stdin, stdout, stderr = self.ssh_client_.exec_command(
-        #     'kubectl delete pod --all --grace-period=0 --force')
-        # exit_status = stdout.channel.recv_exit_status()
-        # if not exit_status == 0:
-        #     print(
-        #         f' > ERROR: failed to deploy benchmark {benchmark_name}, failed to clean-up all pods')
-        #     return EnvStatus.ERROR
 
         # Deploy new benchmark (concurrently, to speed-up deployment).
         fn_dpl_string = ""
