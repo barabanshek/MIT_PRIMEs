@@ -34,13 +34,13 @@ def calculate_reward(r):
 
 # discretize state variable
 def calculate_state(s):
-    if s > 0.08:
+    if s > 0.28:
         return 4
-    elif s > 0.06:
+    elif s > 0.22:
         return 3
-    elif s > 0.04:
+    elif s > 0.16:
         return 2
-    elif s > 0.02:
+    elif s > 0.10:
         return 1
     else:
         return 0
@@ -80,28 +80,30 @@ class BanditEngine:
             run_CPUs = []
             self.agent.reset()
             for t in range(self.max_steps):
-                time.sleep(1)
-                try:
-                    prev_state = self.state
-                    action = self.agent.get_action(self.state)
-                    reward, self.state = self.env.step(self.rl_env, action)
-                    self.agent.update_Q(prev_state, self.state, action, reward, t)
-                    run_actions.append(action)
-                    run_rewards.append(reward)
-                    cpu = self.rl_env.take_action(action)[1]
-                    run_CPUs.append(cpu)
-                    wandb.log({"action" : action, "reward" : reward, "state" : self.state, "CPU utilization" : cpu})
-                    data = {'reward': run_rewards, 
-                    'action': run_actions, 
-                    'step': np.arange(len(run_rewards))}
-                    if hasattr(self.agent, 'epsilon'):
-                        data['epsilon'] = self.agent.epsilon
-                    run_log = pd.DataFrame(data)
-                    log.append(run_log)
-                except:
-                    print('> Error encountered during this step, probably due to empty latency list.')
-                    print('> This step has been skipped.')
-                    pass
+                while True:
+                    time.sleep(1)
+                    try:
+                        prev_state = self.state
+                        action = self.agent.get_action(self.state)
+                        reward, self.state = self.env.step(self.rl_env, action)
+                        self.agent.update_Q(prev_state, self.state, action, reward, t)
+                        run_actions.append(action)
+                        run_rewards.append(reward)
+                        cpu = self.rl_env.take_action(action)[1]
+                        run_CPUs.append(cpu)
+                        wandb.log({"action" : action, "reward" : reward, "state" : self.state, "CPU utilization" : cpu})
+                        data = {'reward': run_rewards, 
+                        'action': run_actions, 
+                        'step': np.arange(len(run_rewards))}
+                        if hasattr(self.agent, 'epsilon'):
+                            data['epsilon'] = self.agent.epsilon
+                        run_log = pd.DataFrame(data)
+                        log.append(run_log)
+                    except:
+                        print('> Error encountered during this step, probably due to empty latency list.')
+                        print('> This step has been skipped.')
+                        continue
+                    break
         return log
 
 #Code for aggregrating results of running an agent in the bandit environment. 
@@ -201,6 +203,7 @@ class RLEnv:
         self.step_size = json_data['step_size']
         self.services = json_data['services']
         self.node = json_data['node']
+        self.steps = json_data['steps']
         self.revision_index = 0
         self.agent = EpsilonGreedyAgent(num_actions=len(self.actions))
         self.env = Env(server_configs_json)
@@ -223,6 +226,8 @@ class RLEnv:
         self.param_val = self.kd_benchmark['functions'][self.revision_index][self.entry_point][self.param]
         self.env.deploy_all_revisions(self.kd_benchmark['benchmark_name'], self.kd_benchmark['functions'])
 
+    def get_steps(self):
+        return self.steps
     # invoke function given the action
     def take_action(self, action):
         action_val = self.actions[action]
@@ -266,15 +271,17 @@ class RLEnv:
         rps_ratio = rps_delta / stat_target_rps
         cpu_usage = env_state[self.kd_benchmark['functions'][self.revision_index][self.entry_point]['node']]['cpu'][1]
         tail_lat = lat_stat[(int)(len(lat_stat) * 0.99)] # 99th pct latency
-        QOS_LAT = 4000000
-        lat_ratio = tail_lat / QOS_LAT
+        QOS_LATS = {'video-analytics-same-node' : 4000000, 'fibonacci' : 100000}
+        # QOS_LAT = 4000000
+        qos_lat = QOS_LATS[self.benchmark]
+        lat_ratio = tail_lat / qos_lat
 
         return (lat_ratio, cpu_usage) # used to calculate reward and update state
     
 def main(args):
     wandb.init(project="rl-serverless", config={"node" : 1, "containerScale" : 1, "containerConcurrency" : 10})
     rl_env = RLEnv(args.serverconfig, args.rlconfig)
-    logs = bandit_sweep([rl_env.agent], rl_env, ['Epsilon Greedy Agent'], n_runs=1)
+    logs = bandit_sweep([rl_env.agent], rl_env, ['Epsilon Greedy Agent'], n_runs=1, max_steps=rl_env.get_steps())
     with open('logs.pickle', 'wb') as handle:
         pickle.dump(logs, handle, protocol=pickle.HIGHEST_PROTOCOL)
     wandb.finish()
