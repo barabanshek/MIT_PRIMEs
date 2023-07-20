@@ -27,9 +27,9 @@ spec:
             - name: TRANSFER_TYPE
               value: "INLINE"
             - name: DecoderFrames
-              value: "6"
+              value: "1"
             - name: CONCURRENT_RECOG
-              value: "false"
+              value: "true"
             - name: MAX_DECODER_SERVER_THREADS
               value: "10"
             - name: ENABLE_TRACING
