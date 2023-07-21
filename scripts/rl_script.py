@@ -91,7 +91,13 @@ class BanditEngine:
                         run_rewards.append(reward)
                         cpu = self.rl_env.take_action(action)[1]
                         run_CPUs.append(cpu)
-                        wandb.log({"action" : action, "reward" : reward, "state" : self.state, "CPU utilization" : cpu})
+                        param_val = self.rl_env.param_val
+                        print(f'{self.rl_env.param} : {param_val}')
+                        wandb.log({"action" : action, 
+                                   "reward" : reward, 
+                                   "state" : self.state, 
+                                   "CPU utilization" : cpu, 
+                                   self.rl_env.param : int(param_val)})
                         data = {'reward': run_rewards, 
                         'action': run_actions, 
                         'step': np.arange(len(run_rewards))}
@@ -99,7 +105,8 @@ class BanditEngine:
                             data['epsilon'] = self.agent.epsilon
                         run_log = pd.DataFrame(data)
                         log.append(run_log)
-                    except:
+                    except Exception as e:
+                        print(e)
                         print('> Error encountered during this step, probably due to empty latency list.')
                         print('> This step has been skipped.')
                         continue
@@ -279,8 +286,11 @@ class RLEnv:
         return (lat_ratio, cpu_usage) # used to calculate reward and update state
     
 def main(args):
-    wandb.init(project="rl-serverless", config={"node" : 1, "containerScale" : 1, "containerConcurrency" : 10})
     rl_env = RLEnv(args.serverconfig, args.rlconfig)
+    wandb.init(project="rl-serverless", config={"node" : rl_env.node,
+                                                 "benchmark" : rl_env.benchmark, 
+                                                 "rps" : rl_env.rps, 
+                                                 "changing parameter" : rl_env.param})
     logs = bandit_sweep([rl_env.agent], rl_env, ['Epsilon Greedy Agent'], n_runs=1, max_steps=rl_env.get_steps())
     with open('logs.pickle', 'wb') as handle:
         pickle.dump(logs, handle, protocol=pickle.HIGHEST_PROTOCOL)
