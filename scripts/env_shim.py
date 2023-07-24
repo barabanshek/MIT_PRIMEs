@@ -145,7 +145,7 @@ class Env:
             print(
                 f' > ERROR: failed to deploy benchmarks, failed to delete prev. deployment')
             return EnvStatus.ERROR
-
+        print('Deleting previous deployments...')
         # Clean-up all pods.
         stdin, stdout, stderr = self.ssh_client_.exec_command(
             'kubectl delete pod --all --grace-period=0 --force')
@@ -154,6 +154,8 @@ class Env:
             print(
                 f' > ERROR: failed to deploy benchmarks, failed to clean-up all pods')
             return EnvStatus.ERROR
+
+        time.sleep(5) # give deployments time to delete
 
     def get_worker_num(self):
         return len(self.k_worker_hostnames_)
