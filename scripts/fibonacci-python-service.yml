@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fibonacci-python
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: fibonacci-python
+  ports:
+  - port: 50000
+    targetPort: 50000
