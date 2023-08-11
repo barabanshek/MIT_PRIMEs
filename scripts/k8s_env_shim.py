@@ -79,10 +79,17 @@ class Env:
     def scale_deployment(self, replicas):
         self.deployment.scale_deployment(replicas)
 
+    # Delete Deployment when finished
+    def delete_deployment(self):
+        self.deployment.delete_deployment()
+
 def main(args):
     env = Env(args.config)
     env.setup()
     env.invoke_service()
+    env.scale_deployment(5)
+    env.invoke_service()
+    env.delete_deployment()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
