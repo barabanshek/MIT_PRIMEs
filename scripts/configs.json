@@ -3,7 +3,7 @@
     "depl_file" : "fibonacci-python-deployment.yml",
     "svc_file" : "fibonacci-python-service.yml",
     "invoker_configs" : {
-        "duration" : 30,
+        "duration" : 10,
         "rps" : 5
     }
 }
