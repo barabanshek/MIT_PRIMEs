@@ -20,7 +20,7 @@ from kubernetes import client, config
 
 class Deployment:
 
-    def __init__(self, api, dep, deployment_name):
+    def __init__(self, deployment_name, dep, api):
         # k8s API
         self.api = api
         # deployment as a json formatted dict
@@ -204,7 +204,7 @@ def main(args):
     deployment.scale_deployment(10)
     time.sleep(20)
     deployment.scale_deployment(15)
-    
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--deploymentname')
