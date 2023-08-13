@@ -6,6 +6,7 @@ import time
 import re
 import csv
 import numpy as np
+import time
 
 from os import path
 from subprocess import run, Popen, PIPE
@@ -21,6 +22,7 @@ class Env:
         # Configs can be set in Configuration class directly or using helper
         # utility. If no argument provided, the config will be loaded from
         # default location.
+        print(config_file)
         config.load_kube_config()
 
         # Initialize vars
@@ -48,7 +50,7 @@ class Env:
         self.total_mem_ = None
 
     # Create Deployment and Service, setup Prometheus.
-    def setup(self, wait_time=5):
+    def setup(self, wait_time=15):
         # Create Deployment
         try:   
             self.deployment.create_deployment()
@@ -80,7 +82,7 @@ class Env:
         for v_id, v_hostname in self.k_worker_hostnames_.items():
             self.k_worker_metrics_[v_id] = PrometheusConnect(
                 url=f'http://{v_hostname}:9090/', disable_ssl=True)
-
+        # node-5.safeserverless.faastracer-pg0.utah.cloudlab.us:9090
         # Print some env stats.
         print("[INFO] Env is initialized, some stats: ")
         print("[INFO] Worker node names: ", self.k_worker_hostnames_)
@@ -99,7 +101,7 @@ class Env:
     # Invoke Service using invoker and return stats
     def invoke_service(self):
         ip = self.service.get_service_ip()
-        invoker_file = '~/vSwarm/tools/invoker'
+        invoker_file = '~/vSwarm/tools/invoker/'
 
         # Get invoker configs
         invoke_params = self.json_data['invoker_configs']
@@ -118,7 +120,9 @@ class Env:
         invoker_cmd = ' '.join(invoker_cmd_join_list)
 
         # Run invoker while redirecting output to separate file
-        print("[INFO] Invoking with command", f'`{invoker_cmd}`\n')
+        print("[INFO] Invoking with command at second {}".format(time.time()), f'`{invoker_cmd}`\n')
+        
+        self.invoker_start_time = time.time()
         stdout = os.popen(invoker_cmd)
 
         # Find latency file and parse stats
@@ -162,15 +166,25 @@ class Env:
             tpl = {}
 
             # CPU-related metrics
-            # Average CPU idle cycles for all CPUs, [0-1]
+            # Average CPU idle cycles for all CPUs, [0-1] 
+            # Note by Lisa: CPU has several modes such as iowait, idle, user, and system. 
+            # Because the objective is to count usage, use a query that excludes idle time:"!idle"
+            # The sum function is used to combine all CPU modes. 
+            # The result shows how many seconds the CPU has run from the start. 
+            #    sum by (cpu)(node_cpu_seconds_total{mode!="idle"})
+            # To tell if the CPU has been busy or idle recently, use the rate function to calculate the growth rate of the counter: 
+            #    (sum by (cpu)(rate(node_cpu_seconds_total{mode!="idle"}[5m]))*100
+            invoker_start_time = self.invoker_start_time
             cpu_idle = (float)(p_metric.custom_query(
-                query=f'avg(rate(node_cpu_seconds_total{{mode="idle"}}[{interval_sec}s]))')[0]['value'][1])
+                query=f'rate(node_cpu_seconds_total{{mode="idle"}}[{interval_sec}s] @{invoker_start_time})')[0]['value'][1])
             # Average CPU user cycles for all CPUs, [0-1]
+            # TODO: need to seperate the CPU usage for each containers / cores
+            # TODO: this @{intvoker} is not working yet upon testing
             cpu_user = (float)(p_metric.custom_query(
-                query=f'avg(rate(node_cpu_seconds_total{{mode="user"}}[{interval_sec}s]))')[0]['value'][1])
+                query=f'avg(rate(node_cpu_seconds_total{{mode="user"}}[{interval_sec}s] @{invoker_start_time}))')[0]['value'][1])
             # Average CPU system cycles for all CPUs, [0-1]
             cpu_system = (float)(p_metric.custom_query(
-                query=f'avg(rate(node_cpu_seconds_total{{mode="system"}}[{interval_sec}s]))')[0]['value'][1])
+                query=f'avg(rate(node_cpu_seconds_total{{mode="system"}}[{interval_sec}s] @{invoker_start_time}))')[0]['value'][1])
             #
             tpl['cpu'] = [cpu_idle, cpu_user, cpu_system]
 
@@ -182,13 +196,20 @@ class Env:
                 query=f'sum(rate(node_network_transmit_bytes_total[{interval_sec}s]))')[0]['value'][1]) * 8
             #
             tpl['net'] = [network_tx_bps, network_rx_bps]
-
+            
             # Memory-related metrics
             # Free memory, Bytes
+            import pdb; pdb.set_trace()
             mem_free = p_metric.custom_query(
-                query=f'node_memory_MemAvailable_bytes[{interval_sec}s]')[0]['values']
+                query=f'node_memory_MemAvailable_bytes[{interval_sec}s] @{invoker_start_time}')[0]['values']
             mem_free = np.array([(int)(val) for (_, val) in mem_free])
+            mem_total = p_metric.custom_query(
+                query=f'node_memory_MemTotal_bytes[{interval_sec}s] @{invoker_start_time}')[0]['values']
+            mem_total = np.array([(int)(val) for (_, val) in mem_total])
             mem_free_avg = np.average(mem_free)
+            
+            # do element-wise division
+            mem_free_frac = mem_free_avg / mem_total
 
             # Total memory, look-up 1 time and cache
             if self.total_mem_ == None:
