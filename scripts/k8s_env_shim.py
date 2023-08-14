@@ -17,6 +17,8 @@ from prometheus_api_client import PrometheusConnect
 from setup_service import Service
 from setup_deployment import Deployment
 
+INVOKER_FILE = '~/vSwarm/tools/invoker/'
+
 class Env:
     def __init__(self, config_file):
         # Configs can be set in Configuration class directly or using helper
@@ -101,22 +103,21 @@ class Env:
     # Invoke Service using invoker and return stats
     def invoke_service(self):
         ip = self.service.get_service_ip()
-        invoker_file = '~/vSwarm/tools/invoker/'
 
         # Get invoker configs
         invoke_params = self.json_data['invoker_configs']
 
         # Setup hostname file
-        os.system('''echo '[ { "hostname": "''' + ip + '''" } ]' > ''' + invoker_file + '''endpoints.json''')
-        print(f"[INFO] Hostname file has been set up at {invoker_file}/endpoints.json")
+        os.system('''echo '[ { "hostname": "''' + ip + '''" } ]' > ''' + INVOKER_FILE + '''endpoints.json''')
+        print(f"[INFO] Hostname file has been set up at {INVOKER_FILE}/endpoints.json")
 
         # Format the invoker command nicely
-        invoker_cmd_join_list = [f'{invoker_file}/invoker',
+        invoker_cmd_join_list = [f'{INVOKER_FILE}/invoker',
                                 '-dbg',
                                 f'-port {self.port}',
                                 f'-time {invoke_params["duration"]}',
                                 f'-rps {invoke_params["rps"]}',
-                                f'-endpointsFile {invoker_file}/endpoints.json']
+                                f'-endpointsFile {INVOKER_FILE}/endpoints.json']
         invoker_cmd = ' '.join(invoker_cmd_join_list)
 
         # Run invoker while redirecting output to separate file
@@ -145,8 +146,11 @@ class Env:
                 stat_real_rps = (float)(m.group(1))
                 stat_target_rps = (float)(m.group(2))
 
-        # Return run stats.
-        return (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename
+        # Check if latency file exists and return stats.
+        if stat_lat_filename == None:
+            assert False, "[ERROR] stat_lat_filename was not found."
+        else:
+            return (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename
 
     # Get latencies given the stat file
     def get_latencies(self, latency_stat_filename):
