@@ -34,19 +34,19 @@ class Env:
         with open(config_file, 'r') as f:
             self.json_data = json.load(f)
         self.name = self.json_data['name']
-        self.depl_file = self.json_data['depl_file']
-        self.svc_file = self.json_data['svc_file']
+        self.deployment_file = self.json_data['deployment_file']
+        self.service_file = self.json_data['service_file']
 
         # Load YAML files as JSON-formatted dictionaries
-        with open(path.join(path.dirname(__file__), self.depl_file)) as f:
+        with open(path.join(path.dirname(__file__), self.deployment_file)) as f:
             self.dep = yaml.safe_load(f)
-        with open(path.join(path.dirname(__file__), self.svc_file)) as f:
+        with open(path.join(path.dirname(__file__), self.service_file)) as f:
             self.svc = yaml.safe_load(f)
             self.port = self.svc['spec']['ports'][0]['port']
 
         # Instantiate Deployment and Service objects
         self.deployment = Deployment(self.name, self.dep, self.api)
-        self.service = Service(self.name, self.svc_file)
+        self.service = Service(self.name, self.service_file)
 
         # Some extra vars for later use
         self.total_mem_ = None
