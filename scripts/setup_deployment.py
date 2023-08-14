@@ -13,6 +13,7 @@ import pytz
 import argparse
 import yaml
 import time
+from subprocess import run
 
 from pprint import pprint
 
@@ -26,7 +27,10 @@ class Deployment:
         # deployment as a json formatted dict
         self.dep = dep
         # name of deployment
-        self.deployment_name = deployment_name
+        self.deployment_name = dep['metadata']['name']
+
+        # namespace of deployment
+        self.namespace = dep['metadata']['namespace']
 
         # Create deployment V1Deployment object
         conts = self.dep['spec']['template']['spec']['containers']
@@ -58,7 +62,7 @@ class Deployment:
         self.deployment_object = client.V1Deployment(
             self.dep['apiVersion'],
             kind="Deployment",
-            metadata=client.V1ObjectMeta(name=self.deployment_name, namespace=self.dep['metadata']['namespace']),
+            metadata=client.V1ObjectMeta(name=self.deployment_name, namespace=self.namespace),
             spec=spec,
         )
 
@@ -81,31 +85,40 @@ class Deployment:
             )
         )
         return resp
+    
+    # Check if all pods are ready.
+    def is_ready(self):
+        # Command to check rollout status
+        status_cmd = f"kubectl rollout status deployment/{self.deployment_name}"
+        # Run the command.
+        ret = run(status_cmd, capture_output=True, shell=True, universal_newlines=True).stdout
+        # Check if the output message shows successful rollout
+        return ret == '''deployment "''' + self.deployment_name + '''" successfully rolled out\n'''
 
     def get_deployment_object(self):
         return self.deployment_object
 
     # Ignore for now -- we don't need this yet
-    def update_deployment(self):
-        # Update container image
-        self.deployment_object.spec.template.spec.containers[0].image = "nginx:1.16.0"
+    # def update_deployment(self):
+    #     # Update container image
+        # self.deployment_object.spec.template.spec.containers[0].image = "nginx:1.16.0"
 
-        # patch the deployment
-        resp = self.api.patch_namespaced_deployment(
-            name=self.deployment_name, namespace="default", body=self.deployment_object
-        )
+    #     # patch the deployment
+    #     resp = self.api.patch_namespaced_deployment(
+    #         name=self.deployment_name, namespace="default", body=self.deployment_object
+    #     )
 
-        print("\n[INFO] deployment's container image updated.\n")
-        print("%s\t%s\t\t\t%s\t%s" % ("NAMESPACE", "NAME", "REVISION", "IMAGE"))
-        print(
-            "%s\t\t%s\t%s\t\t%s\n"
-            % (
-                resp.metadata.namespace,
-                resp.metadata.name,
-                resp.metadata.generation,
-                resp.spec.template.spec.containers[0].image,
-            )
-        )
+    #     print("\n[INFO] deployment's container image updated.\n")
+    #     print("%s\t%s\t\t\t%s\t%s" % ("NAMESPACE", "NAME", "REVISION", "IMAGE"))
+    #     print(
+    #         "%s\t\t%s\t%s\t\t%s\n"
+    #         % (
+    #             resp.metadata.namespace,
+    #             resp.metadata.name,
+    #             resp.metadata.generation,
+    #             resp.spec.template.spec.containers[0].image,
+    #         )
+    #     )
 
     # Scale the number of replicas in the Deployment.
     def scale_deployment(self, replicas):
@@ -114,7 +127,7 @@ class Deployment:
 
         # patch the deployment
         resp = self.api.patch_namespaced_deployment_scale(
-            name=self.deployment_name, namespace="default", body=self.deployment_object
+            name=self.deployment_name, namespace=self.namespace, body=self.deployment_object
         )
 
         print("\n[INFO] deployment's container replicas scaled.\n")
@@ -141,10 +154,10 @@ class Deployment:
 
         # patch the deployment
         resp = self.api.patch_namespaced_deployment(
-            name=self.deployment_name, namespace="default", body=self.deployment_object
+            name=self.deployment_name, namespace=self.namespace, body=self.deployment_object
         )
 
-        print("\n[INFO] deployment `nginx-deployment` restarted.\n")
+        print(f"\n[INFO] deployment `{self.deployment_name}` restarted.\n")
         print("%s\t\t\t%s\t%s" % ("NAME", "REVISION", "RESTARTED-AT"))
         print(
             "%s\t%s\t\t%s\n"
@@ -160,7 +173,7 @@ class Deployment:
         # Delete deployment
         resp = self.api.delete_namespaced_deployment(
             name=self.deployment_name,
-            namespace="default",
+            namespace=self.namespace,
             body=client.V1DeleteOptions(
                 propagation_policy="Foreground", grace_period_seconds=5
             ),

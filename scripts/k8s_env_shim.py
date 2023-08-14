@@ -80,29 +80,54 @@ class Env:
         return 1
 
     # Create Deployment and Service, setup Prometheus.
-    def setup_benchmark(self, wait_time=15):
-        # Create Deployment
-        try:   
-            self.deployment.create_deployment()
-        except Exception as e:
-            print('\n[ERROR] Previous Deployments may still be deleting...')
-            print(f'\n[ERROR] {e}')
-            return 0
-        print(f"[INFO] Waiting for {wait_time} seconds while Deployment is being created")
-        time.sleep(wait_time)
+    def setup_benchmark(self, wait_to_scale=True, timeout=60):
 
-        # Create Service
-        self.service.create_service()
-        print(f"[INFO] Service can be invoked at IP: {self.service.get_service_ip()} at port {self.port}\n")
+        if wait_to_scale:
+            # Create Deployment
+            try:   
+                self.deployment.create_deployment()
+            except Exception as e:
+                print('\n[ERROR] Previous Deployments may still be deleting...')
+                print(f'\n[ERROR] {e}')
+                return 0
+            print(f"[INFO] Waiting for all pods in Deployment to be ready")
+            t_start = time.time()
+            while not self.deployment.is_ready():
+                if time.time() - t_start >= timeout:
+                    assert False, "\n[ERROR] Deployment time exceeded timeout limit."
+                continue
+
+            print("[INFO] All pods are ready.\n")
+
+            # Create Service
+            self.service.create_service()
+            print(f"[INFO] Service can be invoked at IP: {self.service.get_service_ip()} at port {self.port}\n")
 
         return 1
     
+    # Scale number of replicas
+    def scale_deployment(self, replicas, wait_to_scale=True, timeout=60):
+        # Scale replicas
+        self.deployment.scale_deployment(replicas)
+
+        if wait_to_scale:
+            # Wait for replicas to become ready
+            print(f"[INFO] Waiting for replicas to become ready...")
+            t_start = time.time()
+            while not self.deployment.is_ready():
+                if time.time() - t_start >= timeout:
+                    assert False, "\n[ERROR] Deployment time exceeded timeout limit."
+                continue
+            
+            print("[INFO] All replicas are ready.\n")
+
+    # Delete Deployment when finished
+    def delete_deployment(self):
+        self.deployment.delete_deployment()
 
     # Get number of worker nodes
     def get_worker_num(self):
         return len(self.k_worker_hostnames_)
-    
-
 
     # Invoke Service using invoker and return stats
     def invoke_service(self):
@@ -232,15 +257,3 @@ class Env:
             ret[p_id] = tpl
 
         return ret
-
-    
-    # Scale number of replicas
-    def scale_deployment(self, replicas, wait_time=15):
-        self.deployment.scale_deployment(replicas)
-        # Wait for replicas to become ready
-        print(f"[INFO] Waiting {wait_time} seconds for replicas to become ready...\n")
-        time.sleep(wait_time)
-
-    # Delete Deployment when finished
-    def delete_deployment(self):
-        self.deployment.delete_deployment()

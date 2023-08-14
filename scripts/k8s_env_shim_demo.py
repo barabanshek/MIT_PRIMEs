@@ -31,7 +31,6 @@ def main(args):
     # Instantiate Env.
     env = Env(args.config)
 
-
     # Check if Prometheus setup is successful.
     if not env.setup_prometheus():
         print("[ERROR] Prometheus setup failed, please read error message and try again.")
@@ -46,7 +45,7 @@ def main(args):
     run_service(env)
 
     # Scale up pod replicas.
-    env.scale_deployment(1)
+    env.scale_deployment(5)
 
     run_service(env)
 
