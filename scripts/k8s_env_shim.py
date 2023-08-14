@@ -51,22 +51,8 @@ class Env:
         # Some extra vars for later use
         self.total_mem_ = None
 
-    # Create Deployment and Service, setup Prometheus.
-    def setup(self, wait_time=15):
-        # Create Deployment
-        try:   
-            self.deployment.create_deployment()
-        except Exception as e:
-            print('\n[ERROR] Previous Deployments may still be deleting...')
-            print(f'\n[ERROR] {e}')
-            return 0
-        print(f"[INFO] Waiting for {wait_time} seconds while Deployment is being created")
-        time.sleep(wait_time)
-
-        # Create Service
-        self.service.create_service()
-        print(f"[INFO] Service can be invoked at IP: {self.service.get_service_ip()} at port {self.port}\n")
-
+    # Setup Prometheus
+    def setup_prometheus(self):
         # Setup Prometheus on all nodes
         # Get node hostnames as appears in knative.
         node_cmd = '''kubectl get nodes | awk '{print $1}' '''
@@ -91,8 +77,26 @@ class Env:
         print("[INFO] Number of available metrics for workers: ", {
               k: len(v.all_metrics()) for k, v in self.k_worker_metrics_.items()})
         print()
+        return 1
+
+    # Create Deployment and Service, setup Prometheus.
+    def setup_benchmark(self, wait_time=15):
+        # Create Deployment
+        try:   
+            self.deployment.create_deployment()
+        except Exception as e:
+            print('\n[ERROR] Previous Deployments may still be deleting...')
+            print(f'\n[ERROR] {e}')
+            return 0
+        print(f"[INFO] Waiting for {wait_time} seconds while Deployment is being created")
+        time.sleep(wait_time)
+
+        # Create Service
+        self.service.create_service()
+        print(f"[INFO] Service can be invoked at IP: {self.service.get_service_ip()} at port {self.port}\n")
 
         return 1
+    
 
     # Get number of worker nodes
     def get_worker_num(self):
@@ -203,7 +207,7 @@ class Env:
             
             # Memory-related metrics
             # Free memory, Bytes
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
             mem_free = p_metric.custom_query(
                 query=f'node_memory_MemAvailable_bytes[{interval_sec}s] @{invoker_start_time}')[0]['values']
             mem_free = np.array([(int)(val) for (_, val) in mem_free])
@@ -231,7 +235,7 @@ class Env:
 
     
     # Scale number of replicas
-    def scale_deployment(self, replicas, wait_time=5):
+    def scale_deployment(self, replicas, wait_time=15):
         self.deployment.scale_deployment(replicas)
         # Wait for replicas to become ready
         print(f"[INFO] Waiting {wait_time} seconds for replicas to become ready...\n")
