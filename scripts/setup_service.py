@@ -41,38 +41,3 @@ class Service:
         os.system(f'kubectl delete -f {self.svc_file}')
 
         print(f"\n[INFO] service with manifest `{self.svc_file}` deleted.")
-
-
-def main(args):
-    # Configs can be set in Configuration class directly or using helper
-    # utility. If no argument provided, the config will be loaded from
-    # default location.
-    config.load_kube_config()
-    apps_v1 = client.AppsV1Api()
-    service_name = args.servicename
-    svc_file = args.f
-
-    # Uncomment the following lines to enable debug logging
-    # c = client.Configuration()
-    # c.debug = True
-    # apps_v1 = client.AppsV1Api(api_client=client.ApiClient(configuration=c))
-
-    # Create a deployment object with client-python API. The deployment we
-    # created is same as the `nginx-deployment.yaml` in the /examples folder.
-
-    service = Service(service_name, svc_file)
-
-    # read yaml file to get JSON formatted version of the deployment
-    with open(path.join(path.dirname(__file__), svc_file)) as f:
-        svc = yaml.safe_load(f)
-
-    port = svc['spec']['ports'][0]['port']
-    service.create_service()
-    print(service.get_service_ip(port))
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--servicename')
-    parser.add_argument('--f')
-    args = parser.parse_args()
-    main(args)
