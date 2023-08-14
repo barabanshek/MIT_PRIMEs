@@ -175,8 +175,9 @@ class Env:
             # To tell if the CPU has been busy or idle recently, use the rate function to calculate the growth rate of the counter: 
             #    (sum by (cpu)(rate(node_cpu_seconds_total{mode!="idle"}[5m]))*100
             invoker_start_time = self.invoker_start_time
-            cpu_idle = (float)(p_metric.custom_query(
-                query=f'rate(node_cpu_seconds_total{{mode="idle"}}[{interval_sec}s] @{invoker_start_time})')[0]['value'][1])
+            cpu_idle = (p_metric.custom_query(
+                # query=f'avg(rate(node_cpu_seconds_total{{mode="idle"}}[{interval_sec}s] @{invoker_start_time}))')[0]['value'][1])
+                query=f'(rate(node_cpu_seconds_total{{mode="idle"}}[{interval_sec}s] @{invoker_start_time}))')[0]['value'])
             # Average CPU user cycles for all CPUs, [0-1]
             # TODO: need to seperate the CPU usage for each containers / cores
             # TODO: this @{intvoker} is not working yet upon testing
