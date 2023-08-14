@@ -21,7 +21,7 @@ from kubernetes import client, config
 
 class Deployment:
 
-    def __init__(self, deployment_name, dep, api):
+    def __init__(self, dep, api):
         # k8s API
         self.api = api
         # deployment as a json formatted dict

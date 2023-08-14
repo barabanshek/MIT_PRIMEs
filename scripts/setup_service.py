@@ -15,16 +15,16 @@ from kubernetes import client, config
 
 class Service:
 
-    def __init__(self, service_name, svc_file):
+    def __init__(self, service_name, service_file):
         self.service_name = service_name
-        self.svc_file = svc_file
+        self.service_file = service_file
 
     def create_service(self):
 
         # Create Service
-        os.system(f'kubectl apply -f {self.svc_file}')
+        run(f'kubectl apply -f {self.service_file}', shell=True)
 
-        print(f"\n[INFO] service with manifest `{self.svc_file}` created.")
+        print(f"\n[INFO] service with manifest `{self.service_file}` created.")
 
     def get_service_ip(self):
         # Get Cluster IP
@@ -38,6 +38,6 @@ class Service:
         # Delete deployment
 
         # Delete Service
-        os.system(f'kubectl delete -f {self.svc_file}')
+        run(f'kubectl delete -f {self.service_file}', shell=True)
 
-        print(f"\n[INFO] service with manifest `{self.svc_file}` deleted.")
+        print(f"\n[INFO] service with manifest `{self.service_file}` deleted.")

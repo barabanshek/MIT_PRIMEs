@@ -45,7 +45,7 @@ class Env:
             self.port = self.svc['spec']['ports'][0]['port']
 
         # Instantiate Deployment and Service objects
-        self.deployment = Deployment(self.name, self.dep, self.api)
+        self.deployment = Deployment(self.dep, self.api)
         self.service = Service(self.name, self.service_file)
 
         # Some extra vars for later use
@@ -97,7 +97,7 @@ class Env:
                     assert False, "\n[ERROR] Deployment time exceeded timeout limit."
                 continue
 
-            print("[INFO] All pods are ready.\n")
+            print(f"[INFO] Deployment successfully rolled out in {round(time.time() - t_start, 3)} seconds.\n")
 
             # Create Service
             self.service.create_service()
@@ -119,7 +119,7 @@ class Env:
                     assert False, "\n[ERROR] Deployment time exceeded timeout limit."
                 continue
             
-            print("[INFO] All replicas are ready.\n")
+            print(f"[INFO] Deployment successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
 
     # Delete Deployment when finished
     def delete_deployment(self):
