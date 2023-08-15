@@ -15,9 +15,10 @@ from kubernetes import client, config
 
 class Service:
 
-    def __init__(self, service_name, service_file):
+    def __init__(self, service_name, service_file, port):
         self.service_name = service_name
         self.service_file = service_file
+        self.port = port
 
     def create_service(self):
 

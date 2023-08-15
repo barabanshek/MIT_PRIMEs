@@ -41,6 +41,7 @@ class Deployment:
                     ports.append(client.V1ContainerPort(name=conts[i]['ports'][j]['name'], container_port=conts[i]['ports'][j]['containerPort']))
             except:
                 continue
+
         containers = [client.V1Container(
             args=conts[i]['args'],
             name=conts[i]['name'],

@@ -2,7 +2,6 @@ import os
 import argparse
 import yaml
 import json
-import time
 import re
 import csv
 import numpy as np
@@ -14,9 +13,6 @@ from pprint import pprint
 from kubernetes import client, config
 from prometheus_api_client import PrometheusConnect
 
-from setup_service import Service
-from setup_deployment import Deployment
-
 INVOKER_FILE = '~/vSwarm/tools/invoker/'
 
 class Env:
@@ -24,7 +20,6 @@ class Env:
         # Configs can be set in Configuration class directly or using helper
         # utility. If no argument provided, the config will be loaded from
         # default location.
-        print(config_file)
         config.load_kube_config()
 
         # Initialize vars
@@ -33,20 +28,6 @@ class Env:
         # Load and parse json config file.
         with open(config_file, 'r') as f:
             self.json_data = json.load(f)
-        self.name = self.json_data['name']
-        self.deployment_file = self.json_data['deployment_file']
-        self.service_file = self.json_data['service_file']
-
-        # Load YAML files as JSON-formatted dictionaries
-        with open(path.join(path.dirname(__file__), self.deployment_file)) as f:
-            self.dep = yaml.safe_load(f)
-        with open(path.join(path.dirname(__file__), self.service_file)) as f:
-            self.svc = yaml.safe_load(f)
-            self.port = self.svc['spec']['ports'][0]['port']
-
-        # Instantiate Deployment and Service objects
-        self.deployment = Deployment(self.dep, self.api)
-        self.service = Service(self.name, self.service_file)
 
         # Some extra vars for later use
         self.total_mem_ = None
@@ -79,59 +60,63 @@ class Env:
         print()
         return 1
 
-    # Create Deployment and Service, setup Prometheus.
-    def setup_benchmark(self, wait_to_scale=True, timeout=60):
+    # Create Deployments and Service.
+    def setup_functions(self, deployments, services, wait_to_scale=True, timeout=60):
 
-        if wait_to_scale:
-            # Create Deployment
-            try:   
-                self.deployment.create_deployment()
+        # Create Deployments    
+        for deployment, service in zip(deployments, services):
+            try:
+                deployment.create_deployment()
             except Exception as e:
                 print('\n[ERROR] Previous Deployments may still be deleting...')
                 print(f'\n[ERROR] {e}')
                 return 0
-            print(f"[INFO] Waiting for all pods in Deployment to be ready")
-            t_start = time.time()
-            while not self.deployment.is_ready():
-                if time.time() - t_start >= timeout:
-                    assert False, "\n[ERROR] Deployment time exceeded timeout limit."
-                continue
+            if wait_to_scale:
+                print(f"[INFO] Waiting for all pods in Deployment to be ready")
+                t_start = time.time()
+                while not deployment.is_ready():
+                    if time.time() - t_start >= timeout:
+                        assert False, "\n[ERROR] Deployment time exceeded timeout limit."
+                    continue
 
-            print(f"[INFO] Deployment successfully rolled out in {round(time.time() - t_start, 3)} seconds.\n")
-
+            print(f"[INFO] Deployment {deployment.deployment_name} successfully rolled out in {round(time.time() - t_start, 3)} seconds.\n")
+            
             # Create Service
-            self.service.create_service()
-            print(f"[INFO] Service can be invoked at IP: {self.service.get_service_ip()} at port {self.port}\n")
+            service.create_service()
+            print(f"[INFO] Service can be invoked at IP: {service.get_service_ip()} at port {service.port}\n")
 
         return 1
     
     # Scale number of replicas
-    def scale_deployment(self, replicas, wait_to_scale=True, timeout=60):
+    def scale_deployments(self, deployments, replicas, wait_to_scale=True, timeout=60):
+
         # Scale replicas
-        self.deployment.scale_deployment(replicas)
+        for deployment in deployments:
+            deployment.scale_deployment(replicas)
 
-        if wait_to_scale:
-            # Wait for replicas to become ready
-            print(f"[INFO] Waiting for replicas to become ready...")
-            t_start = time.time()
-            while not self.deployment.is_ready():
-                if time.time() - t_start >= timeout:
-                    assert False, "\n[ERROR] Deployment time exceeded timeout limit."
-                continue
-            
-            print(f"[INFO] Deployment successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
+            if wait_to_scale:
+                # Wait for replicas to become ready
+                print(f"[INFO] Waiting for replicas to become ready...")
+                t_start = time.time()
+                while not deployment.is_ready():
+                    if time.time() - t_start >= timeout:
+                        assert False, "\n[ERROR] Deployment time exceeded timeout limit."
+                    continue
+                
+                print(f"[INFO] Deployment {deployment.deployment_name} successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
 
-    # Delete Deployment when finished
-    def delete_deployment(self):
-        self.deployment.delete_deployment()
+    # Delete Deployments when finished
+    def delete_deployments(self, deployments):
+        for deployment in deployments:
+            deployment.delete_deployment()
 
     # Get number of worker nodes
     def get_worker_num(self):
         return len(self.k_worker_hostnames_)
 
     # Invoke Service using invoker and return stats
-    def invoke_service(self):
-        ip = self.service.get_service_ip()
+    def invoke_service(self, service):
+        ip = service.get_service_ip()
 
         # Get invoker configs
         invoke_params = self.json_data['invoker_configs']
@@ -143,7 +128,7 @@ class Env:
         # Format the invoker command nicely
         invoker_cmd_join_list = [f'{INVOKER_FILE}/invoker',
                                 '-dbg',
-                                f'-port {self.port}',
+                                f'-port {service.port}',
                                 f'-time {invoke_params["duration"]}',
                                 f'-rps {invoke_params["rps"]}',
                                 f'-endpointsFile {INVOKER_FILE}/endpoints.json']

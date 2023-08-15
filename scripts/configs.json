@@ -1,9 +1,8 @@
 {
-    "name" : "fibonacci-python",
-    "deployment_file" : "fibonacci-python-deployment.yml",
-    "service_file" : "fibonacci-python-service.yml",
+    "entry_point" : "fibonacci-python",
+    "functions" : ["fibonacci-python"],
     "invoker_configs" : {
-        "duration" : 10,
-        "rps" : 5
+        "duration" : 30,
+        "rps" : 10
     }
 }
