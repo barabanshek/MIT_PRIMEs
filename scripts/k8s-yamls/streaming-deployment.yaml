@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: streaming
+  namespace: default
+  labels:
+    app: streaming
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: streaming
+  template:
+    metadata:
+      labels:
+        app: streaming
+    spec:
+      containers:
+        - name: streaming
+          image: docker.io/vhiveease/video-analytics-streaming:latest
+          imagePullPolicy: Always
+          args: ["-addr", "decoder.default.svc.cluster.local"]
+          env:
+            - name: TRANSFER_TYPE
+              value: "INLINE"
+            - name: ENABLE_TRACING
+              value: "false"
+          ports:
+            # For `h2c`, see https://knative.tips/networking/http2/
+            - name: h2c
+              containerPort: 80
