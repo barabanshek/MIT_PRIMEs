@@ -77,7 +77,7 @@ def main(args):
     run_service(env, entry_service)
 
     # Scale up pod replicas.
-    env.scale_deployments(deployments, 5)
+    env.scale_deployments(deployments, 30)
 
     run_service(env, entry_service)
 
@@ -89,18 +89,3 @@ if __name__ == "__main__":
     parser.add_argument('--config')
     args = parser.parse_args()
     main(args)
-
-# JSON config
-# {
-#     "benchmarks" :
-#     {
-#         "entry_point" : 0,
-#         "names" : ["streaming", "decoder", "recog"],
-#         "deployment_files" : ["streaming-deployment.yml", "decoder-deployment.yml", "recog-deployment.yml"],
-#         "service_files" : ["streaming-service.yml", "decoder-service.yml", "recog-service.yml"],
-#         "invoker_configs" : {
-#             "duration" : 10,
-#             "rps" : 5
-#         }
-#     }
-# }
