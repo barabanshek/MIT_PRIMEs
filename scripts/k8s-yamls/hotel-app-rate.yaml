@@ -37,3 +37,16 @@ spec:
             - --port=8083
             - --db_addr=hotel-app-database:27017
             - --memcached_addr=hotel-app-mmc:11211
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-app-rate
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: hotel-app-rate
+  ports:
+  - port: 50000
+    targetPort: 50000

@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hotel-app-reservation
+  name: hotel-app-user
   namespace: default
   labels:
-    app: hotel-app-reservation
+    app: hotel-app-rate
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: hotel-app-reservation
+      app: hotel-app-rate
   template:
     metadata:
       labels:
-        app: hotel-app-reservation
+        app: hotel-app-rate
     spec:
       containers:
         # Relay --------------
@@ -26,15 +26,26 @@ spec:
             - --addr=0.0.0.0:50000
             - --function-endpoint-url=0.0.0.0
             - --function-endpoint-port=8083
-            - --function-name=reservation
-            - --function-method=CheckAvailability
-            - --value=1
+            - --function-name=user
+            - --value=hello
 
         # Function ------------
         - name: function
-          image: docker.io/vhiveease/hotel-app-reservation:latest
+          image: docker.io/vhiveease/hotel-app-user:latest
           args:
             - --url=0.0.0.0
             - --port=8083
             - --db_addr=hotel-app-database:27017
-            - --memcached_addr=hotel-app-mmc:11211
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-app-user
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: hotel-app-user
+  ports:
+  - port: 50000
+    targetPort: 50000
