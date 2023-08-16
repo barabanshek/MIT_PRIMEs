@@ -1,0 +1,8 @@
+{
+    "n-runs" : 1,
+    "min-scale" : 1,
+    "max-scale" : 121,
+    "actions" : [-20, 0, 20],
+    "step-size" : 20,
+    "steps" : 10
+}
