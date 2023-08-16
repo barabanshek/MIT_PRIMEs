@@ -1,23 +1,10 @@
-"""
-The example covers the following:
-    - Creation of a deployment using AppsV1Api
-    - update/patch to perform rolling restart on the deployment
-    - deletetion of the deployment
-"""
+import datetime
+import pytz
 
 from os import path
-
-import datetime
-
-import pytz
-import argparse
-import yaml
-import time
 from subprocess import run
-
 from pprint import pprint
-
-from kubernetes import client, config
+from kubernetes import client
 
 class Deployment:
 
@@ -74,17 +61,17 @@ class Deployment:
             body=self.deployment_object, namespace="default"
         )
 
-        print(f"\n[INFO] deployment `{self.deployment_name}` created.\n")
+        print(f"\n[UPDATE] deployment `{self.deployment_name}` created.\n")
         print("%s\t%s\t\t\t%s\t%s" % ("NAMESPACE", "NAME", "REVISION", "IMAGE"))
-        print(
-            "%s\t\t%s\t%s\t\t%s\n"
-            % (
-                resp.metadata.namespace,
-                resp.metadata.name,
-                resp.metadata.generation,
-                resp.spec.template.spec.containers[0].image,
-            )
-        )
+        # print(
+        #     "%s\t\t%s\t%s\t\t%s\n"
+        #     % (
+        #         resp.metadata.namespace,
+        #         resp.metadata.name,
+        #         resp.metadata.generation,
+        #         resp.spec.template.spec.containers[0].image,
+        #     )
+        # )
         return resp
     
     # Check if all pods are ready.
@@ -131,17 +118,17 @@ class Deployment:
             name=self.deployment_name, namespace=self.namespace, body=self.deployment_object
         )
 
-        print("\n[INFO] deployment's container replicas scaled.\n")
-        print("%s\t%s\t\t\t%s\t%s" % ("NAMESPACE", "NAME", "REVISION", "REPLICAS"))
-        print(
-            "%s\t\t%s\t%s\t\t%s\n"
-            % (
-                resp.metadata.namespace,
-                resp.metadata.name,
-                resp.metadata.generation,
-                resp.spec.replicas,
-            )
-        )
+        print("\n[UPDATE] deployment's container replicas scaled.\n")
+        # print("%s\t%s\t\t\t%s\t%s" % ("NAMESPACE", "NAME", "REVISION", "REPLICAS"))
+        # print(
+        #     "%s\t\t%s\t%s\t\t%s\n"
+        #     % (
+        #         resp.metadata.namespace,
+        #         resp.metadata.name,
+        #         resp.metadata.generation,
+        #         resp.spec.replicas,
+        #     )
+        # )
 
     # Restart the Deployment
     def restart_deployment(self):
@@ -158,16 +145,16 @@ class Deployment:
             name=self.deployment_name, namespace=self.namespace, body=self.deployment_object
         )
 
-        print(f"\n[INFO] deployment `{self.deployment_name}` restarted.\n")
-        print("%s\t\t\t%s\t%s" % ("NAME", "REVISION", "RESTARTED-AT"))
-        print(
-            "%s\t%s\t\t%s\n"
-            % (
-                resp.metadata.name,
-                resp.metadata.generation,
-                resp.spec.template.metadata.annotations,
-            )
-        )
+        print(f"\n[RESTART] deployment `{self.deployment_name}` restarted.\n")
+        # print("%s\t\t\t%s\t%s" % ("NAME", "REVISION", "RESTARTED-AT"))
+        # print(
+        #     "%s\t%s\t\t%s\n"
+        #     % (
+        #         resp.metadata.name,
+        #         resp.metadata.generation,
+        #         resp.spec.template.metadata.annotations,
+        #     )
+        # )
 
     # Delete the Deployment.
     def delete_deployment(self):
@@ -179,4 +166,4 @@ class Deployment:
                 propagation_policy="Foreground", grace_period_seconds=5
             ),
         )
-        print(f"\n[INFO] deployment `{self.deployment_name}` deleted.")
+        print(f"\n[DELETED] deployment `{self.deployment_name}` deleted.")

@@ -1,6 +1,4 @@
 import os
-import argparse
-import yaml
 import json
 import re
 import csv
@@ -9,7 +7,7 @@ import time
 import signal
 
 from os import path
-from subprocess import run, Popen, PIPE
+from subprocess import run
 from pprint import pprint
 from kubernetes import client, config
 from prometheus_api_client import PrometheusConnect
@@ -61,8 +59,9 @@ class Env:
                 url=f'http://{v_hostname}:9090/', disable_ssl=True)
         # node-5.safeserverless.faastracer-pg0.utah.cloudlab.us:9090
         # Print some env stats.
-        print("[INFO] Env is initialized, some stats: ")
-        print("[INFO] Worker node names: ", self.k_worker_hostnames_)
+        print("[UPDATE] Env is initialized, some stats: ")
+        print("[INFO] Worker node names: ")
+        pprint(self.k_worker_hostnames_)
         print("[INFO] Number of available metrics for workers: ", {
               k: len(v.all_metrics()) for k, v in self.k_worker_metrics_.items()})
         print()
@@ -84,13 +83,13 @@ class Env:
                 return 0
             try:
                 if wait_to_scale:
-                    print(f"[INFO] Waiting for all pods in Deployment to be ready")
+                    print(f"[RUNNING] Waiting for all pods in Deployment to be ready")
                     t_start = time.time()
                     while not deployment.is_ready():
                         continue
                     # Cancel the timer when the Deployment is ready
                     signal.alarm(0)                
-                    print(f"[INFO] Deployment {deployment.deployment_name} successfully rolled out in {round(time.time() - t_start, 3)} seconds.\n")
+                    print(f"[UPDATE] Deployment {deployment.deployment_name} successfully rolled out in {round(time.time() - t_start, 3)} seconds.\n")
             except:
                 assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
             
@@ -110,13 +109,13 @@ class Env:
             deployment.scale_deployment(replicas)
             try:
                 if wait_to_scale:
-                    print(f"[INFO] Waiting for all replicas to scale")
+                    print(f"[RUNNING] Waiting for all replicas to scale")
                     t_start = time.time()
                     while not deployment.is_ready():
                         continue
                     # Cancel the timer when the replicas are ready
                     signal.alarm(0)                
-                    print(f"[INFO] Deployment {deployment.deployment_name} successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
+                    print(f"[UPDATE] Deployment {deployment.deployment_name} successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
             except:
                 assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
 
@@ -150,7 +149,7 @@ class Env:
         invoker_cmd = ' '.join(invoker_cmd_join_list)
 
         # Run invoker while redirecting output to separate file
-        print("[INFO] Invoking with command at second {}".format(time.time()), f'`{invoker_cmd}`\n')
+        print("[RUNNING] Invoking with command at second {}".format(time.time()), f'`{invoker_cmd}`\n')
         
         self.invoker_start_time = time.time()
         stdout = os.popen(invoker_cmd)

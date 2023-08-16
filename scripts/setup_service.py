@@ -1,17 +1,6 @@
 from os import path
-import os
-
-import datetime
-
-import pytz
-import argparse
-import yaml
-import time
-
 from subprocess import run
 from pprint import pprint
-
-from kubernetes import client, config
 
 class Service:
 
@@ -23,9 +12,9 @@ class Service:
     def create_service(self):
 
         # Create Service
-        run(f'kubectl apply -f {self.service_file}', shell=True)
+        ret = run(f'kubectl apply -f {self.service_file}', shell=True, capture_output=True).stdout
 
-        print(f"\n[INFO] service with manifest `{self.service_file}` created.")
+        print(f"\n[UPDATE] service with manifest `{self.service_file}` created.")
 
     def get_service_ip(self):
         # Get Cluster IP
@@ -41,4 +30,4 @@ class Service:
         # Delete Service
         run(f'kubectl delete -f {self.service_file}', shell=True)
 
-        print(f"\n[INFO] service with manifest `{self.service_file}` deleted.")
+        print(f"\n[DELETED] service with manifest `{self.service_file}` deleted.")

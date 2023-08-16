@@ -88,18 +88,3 @@ if __name__ == "__main__":
     parser.add_argument('--config')
     args = parser.parse_args()
     main(args)
-
-# JSON config
-# {
-#     "benchmarks" :
-#     {
-#         "entry_point" : 0,
-#         "names" : ["streaming", "decoder", "recog"],
-#         "deployment_files" : ["streaming-deployment.yml", "decoder-deployment.yml", "recog-deployment.yml"],
-#         "service_files" : ["streaming-service.yml", "decoder-service.yml", "recog-service.yml"],
-#         "invoker_configs" : {
-#             "duration" : 10,
-#             "rps" : 5
-#         }
-#     }
-# }
