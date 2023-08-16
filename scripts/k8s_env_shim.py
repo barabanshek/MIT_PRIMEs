@@ -6,6 +6,7 @@ import re
 import csv
 import numpy as np
 import time
+import signal
 
 from os import path
 from subprocess import run, Popen, PIPE
@@ -15,12 +16,19 @@ from prometheus_api_client import PrometheusConnect
 
 INVOKER_FILE = '~/vSwarm/tools/invoker/'
 
+# Register a handler for timeouts
+def timeout_handler(signum, frame):
+    raise Exception("[ERROR] timeout limit exceeded.\n")
+
 class Env:
     def __init__(self, config_file):
         # Configs can be set in Configuration class directly or using helper
         # utility. If no argument provided, the config will be loaded from
         # default location.
         config.load_kube_config()
+
+        # Register signal function handler
+        signal.signal(signal.SIGALRM, timeout_handler)
 
         # Initialize vars
         self.api = client.AppsV1Api()
@@ -61,25 +69,30 @@ class Env:
         return 1
 
     # Create Deployments and Service.
+    # timeout : timeout limit for each deployment
     def setup_functions(self, deployments, services, wait_to_scale=True, timeout=60):
 
         # Create Deployments    
         for deployment, service in zip(deployments, services):
+            # Start the timer
+            signal.alarm(timeout)
             try:
                 deployment.create_deployment()
             except Exception as e:
                 print('\n[ERROR] Previous Deployments may still be deleting...')
                 print(f'\n[ERROR] {e}')
                 return 0
-            if wait_to_scale:
-                print(f"[INFO] Waiting for all pods in Deployment to be ready")
-                t_start = time.time()
-                while not deployment.is_ready():
-                    if time.time() - t_start >= timeout:
-                        assert False, "\n[ERROR] Deployment time exceeded timeout limit."
-                    continue
-
-            print(f"[INFO] Deployment {deployment.deployment_name} successfully rolled out in {round(time.time() - t_start, 3)} seconds.\n")
+            try:
+                if wait_to_scale:
+                    print(f"[INFO] Waiting for all pods in Deployment to be ready")
+                    t_start = time.time()
+                    while not deployment.is_ready():
+                        continue
+                    # Cancel the timer when the Deployment is ready
+                    signal.alarm(0)                
+                    print(f"[INFO] Deployment {deployment.deployment_name} successfully rolled out in {round(time.time() - t_start, 3)} seconds.\n")
+            except:
+                assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
             
             # Create Service
             service.create_service()
@@ -92,18 +105,20 @@ class Env:
 
         # Scale replicas
         for deployment in deployments:
+            # Start the timer
+            signal.alarm(timeout)
             deployment.scale_deployment(replicas)
-
-            if wait_to_scale:
-                # Wait for replicas to become ready
-                print(f"[INFO] Waiting for replicas to become ready...")
-                t_start = time.time()
-                while not deployment.is_ready():
-                    if time.time() - t_start >= timeout:
-                        assert False, "\n[ERROR] Deployment time exceeded timeout limit."
-                    continue
-                
-                print(f"[INFO] Deployment {deployment.deployment_name} successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
+            try:
+                if wait_to_scale:
+                    print(f"[INFO] Waiting for all replicas to scale")
+                    t_start = time.time()
+                    while not deployment.is_ready():
+                        continue
+                    # Cancel the timer when the replicas are ready
+                    signal.alarm(0)                
+                    print(f"[INFO] Deployment {deployment.deployment_name} successfully rolled out in {round(time.time() - t_start, 3)} seconds.\n")
+            except:
+                assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
 
     # Delete Deployments when finished
     def delete_deployments(self, deployments):
