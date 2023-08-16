@@ -119,10 +119,10 @@ class Env:
             except:
                 assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
 
-    # Delete Deployments when finished
-    def delete_deployments(self, deployments):
-        for deployment in deployments:
-            deployment.delete_deployment()
+    # Delete functions when finished
+    def delete_functions(self, services):
+        for service in services:
+            service.delete_service()
 
     # Get number of worker nodes
     def get_worker_num(self):

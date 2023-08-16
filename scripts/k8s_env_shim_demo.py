@@ -68,7 +68,7 @@ def main(args):
 
     # Check if benchmark setup is successful. If not, attempt to delete existing deployments.
     if not env.setup_functions(deployments, services):
-        env.delete_deployments(deployments)
+        env.delete_functions(services)
         print("[ERROR] Benchmark setup failed, please read error message and try again.")
         return 0
 
@@ -81,7 +81,7 @@ def main(args):
     run_service(env, entry_service)
 
     # Delete deployment when finished.
-    env.delete_deployments(deployments)
+    env.delete_functions(services)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

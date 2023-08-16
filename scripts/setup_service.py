@@ -12,14 +12,20 @@ class Service:
     def create_service(self):
 
         # Create Service
-        ret = run(f'kubectl apply -f {self.service_file}', shell=True, capture_output=True).stdout
+        ret = run(f'kubectl apply -f {self.service_file}', shell=True, capture_output=True)
+        if ret.returncode != 0:
+            assert False, f"\n[ERROR] Failed to run command `kubectl apply -f {self.service_file}`\n[ERROR] Error message: {ret.stdout}"
 
         print(f"\n[UPDATE] service with manifest `{self.service_file}` created.")
 
     def get_service_ip(self):
         # Get Cluster IP
         ip_cmd = f"kubectl get service/{self.service_name} -o jsonpath='{{.spec.clusterIP}}'"
-        ip = str(run(ip_cmd, capture_output=True, shell=True, universal_newlines=True).stdout)
+        ret = run(ip_cmd, capture_output=True, shell=True, universal_newlines=True)
+        if ret.returncode != 0:
+            assert False, f"\n[ERROR] Failed to run command `kubectl get service/{self.service_name} -o jsonpath='{{.spec.clusterIP}}`\n[ERROR] Error message: {ret.stdout}"
+
+        ip = ret.stdout
 
         return ip
 
@@ -28,6 +34,8 @@ class Service:
         # Delete deployment
 
         # Delete Service
-        run(f'kubectl delete -f {self.service_file}', shell=True)
+        ret = run(f'kubectl delete -f {self.service_file}', capture_output=True, shell=True)
+        if ret.returncode != 0:
+            assert False, f"\n[ERROR] Failed to run command `kubectl delete -f {self.service_file}`\n[ERROR] Error message: {ret.stdout}"
 
         print(f"\n[DELETED] service with manifest `{self.service_file}` deleted.")

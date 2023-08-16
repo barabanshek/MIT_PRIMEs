@@ -62,7 +62,7 @@ class Deployment:
         )
 
         print(f"\n[UPDATE] deployment `{self.deployment_name}` created.\n")
-        print("%s\t%s\t\t\t%s\t%s" % ("NAMESPACE", "NAME", "REVISION", "IMAGE"))
+        # print("%s\t%s\t\t\t%s\t%s" % ("NAMESPACE", "NAME", "REVISION", "IMAGE"))
         # print(
         #     "%s\t\t%s\t%s\t\t%s\n"
         #     % (
@@ -163,7 +163,7 @@ class Deployment:
             name=self.deployment_name,
             namespace=self.namespace,
             body=client.V1DeleteOptions(
-                propagation_policy="Foreground", grace_period_seconds=5
+                propagation_policy="Foreground", grace_period_seconds=0
             ),
         )
         print(f"\n[DELETED] deployment `{self.deployment_name}` deleted.")
