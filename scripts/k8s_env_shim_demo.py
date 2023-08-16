@@ -2,6 +2,7 @@ import argparse
 import yaml
 import json
 
+from yaml.loader import SafeLoader
 from os import path
 from k8s_env_shim import Env
 from pprint import pprint
@@ -49,18 +50,16 @@ def main(args):
     services = []
     for function in functions:
         # Instantiate Deployment objects
-        deployment_file_name = f"k8s-yamls/{function}-deployment.yaml"
-        with open(path.join(path.dirname(__file__), deployment_file_name)) as f:
-            deployment = Deployment(yaml.safe_load(f), env.api)
-            deployments.append(deployment)
+        file_name = f"k8s-yamls/{function}.yaml"
+        with open(path.join(path.dirname(__file__), file_name)) as f:
+            dep, svc = yaml.load_all(f, Loader=SafeLoader)
+        deployment = Deployment(dep, env.api)
+        deployments.append(deployment)
 
         # Instantiate Service objects
-        service_file_name = f"k8s-yamls/{function}-service.yaml"
-        with open(path.join(path.dirname(__file__), service_file_name)) as f:
-            svc = yaml.safe_load(f)
-            port = svc['spec']['ports'][0]['port']
-            service = Service(function, service_file_name, port)
-            services.append(service)
+        port = svc['spec']['ports'][0]['port']
+        service = Service(function, file_name, port)
+        services.append(service)
 
     # Check if Prometheus setup is successful.
     if not env.setup_prometheus():
@@ -77,7 +76,7 @@ def main(args):
     run_service(env, entry_service)
 
     # Scale up pod replicas.
-    env.scale_deployments(deployments, 30)
+    env.scale_deployments(deployments, 5)
 
     run_service(env, entry_service)
 
@@ -89,3 +88,18 @@ if __name__ == "__main__":
     parser.add_argument('--config')
     args = parser.parse_args()
     main(args)
+
+# JSON config
+# {
+#     "benchmarks" :
+#     {
+#         "entry_point" : 0,
+#         "names" : ["streaming", "decoder", "recog"],
+#         "deployment_files" : ["streaming-deployment.yml", "decoder-deployment.yml", "recog-deployment.yml"],
+#         "service_files" : ["streaming-service.yml", "decoder-service.yml", "recog-service.yml"],
+#         "invoker_configs" : {
+#             "duration" : 10,
+#             "rps" : 5
+#         }
+#     }
+# }

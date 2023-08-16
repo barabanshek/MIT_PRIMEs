@@ -116,7 +116,7 @@ class Env:
                         continue
                     # Cancel the timer when the replicas are ready
                     signal.alarm(0)                
-                    print(f"[INFO] Deployment {deployment.deployment_name} successfully rolled out in {round(time.time() - t_start, 3)} seconds.\n")
+                    print(f"[INFO] Deployment {deployment.deployment_name} successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
             except:
                 assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
 
