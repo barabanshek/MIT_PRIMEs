@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hotel-app-reservation
+  namespace: default
+  labels:
+    app: hotel-app-reservation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hotel-app-reservation
+  template:
+    metadata:
+      labels:
+        app: hotel-app-reservation
+    spec:
+      containers:
+        # Relay --------------
+        - name: relay
+          image: docker.io/vhiveease/relay:latest
+          ports:
+            - name: h2c
+              containerPort: 50000
+          args:
+            - --addr=0.0.0.0:50000
+            - --function-endpoint-url=0.0.0.0
+            - --function-endpoint-port=8083
+            - --function-name=reservation
+            - --function-method=CheckAvailability
+            - --value=1
+
+        # Function ------------
+        - name: function
+          image: docker.io/vhiveease/hotel-app-reservation:latest
+          args:
+            - --url=0.0.0.0
+            - --port=8083
+            - --db_addr=hotel-app-database:27017
+            - --memcached_addr=hotel-app-mmc:11211

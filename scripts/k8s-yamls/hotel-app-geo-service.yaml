@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-app-geo
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: hotel-app-geo
+  ports:
+  - port: 50000
+    targetPort: 50000
