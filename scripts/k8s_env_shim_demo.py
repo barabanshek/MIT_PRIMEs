@@ -10,17 +10,20 @@ from setup_service import Service
 from setup_deployment import Deployment
 
 # Run the benchmark and print stats
-def run_service(env, service):
+def run_service(env, service, invoker_configs):
+    # Get invoker configs.
+    duration = invoker_configs['duration']
+    rps = invoker_configs['rps']
     # Invoke.
     (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
-        env.invoke_service(service)
+        env.invoke_service(service, duration, rps)
     lat_stat = env.get_latencies(stat_lat_filename)
     if lat_stat == []:
         print("[ERROR] No responses were returned, no latency statistics is computed.")
         return
     
     # Sample env.
-    env_state = env.sample_env()
+    env_state = env.sample_env(duration)
 
     # Print statistics.
     print("[INFO] Invocation statistics:\n")
@@ -36,13 +39,15 @@ def run_service(env, service):
 
 def main(args):
     # Instantiate Env.
-    env = Env(args.config)
+    env = Env()
 
     # Load and parse json config file.
     with open(args.config, 'r') as f:
         json_data = json.load(f)
-    entry_point_function = json_data['entry_point']
+        
+    entry_point_function = json_data['entry-point']
     functions = json_data['functions']
+    invoker_configs = json_data['invoker-configs']
     entry_point_function_index = functions.index(entry_point_function)
 
     # Load YAML files as JSON-formatted dictionaries
@@ -73,12 +78,12 @@ def main(args):
         return 0
 
     entry_service = services[entry_point_function_index]
-    run_service(env, entry_service)
+    run_service(env, entry_service, invoker_configs)
 
     # Scale up pod replicas.
     env.scale_deployments(deployments, 5)
 
-    run_service(env, entry_service)
+    run_service(env, entry_service, invoker_configs)
 
     # Delete deployment when finished.
     env.delete_functions(services)

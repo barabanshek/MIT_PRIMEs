@@ -1,165 +1,119 @@
 import argparse
+import yaml
+import json
+from multiprocessing import Process
+
+from yaml.loader import SafeLoader
+from os import path
 from k8s_env_shim import Env
 from pprint import pprint
-import json
-import os
-import pickle
-import time
-import numpy as np
+from setup_service import Service
+from setup_deployment import Deployment
+
+def print_env_state(env_state):
+    for k in env_state.keys():
+        print(f"        Node {k}:")
+        print("            CPU Usage:")
+        print(f"                Idle: {round(100*env_state[k]['cpu'][0], 6)} %")
+        print(f"                User: {round(100*env_state[k]['cpu'][1], 6)} %")
+        print(f"                System: {round(100*env_state[k]['cpu'][2], 6)} %")
+        print("            Memory Usage:")
+        print(f"                Free: {round(100*env_state[k]['mem'], 6)} %")
+        print("            Network Throughput (bps):")
+        print(f"                Transmit: {env_state[k]['net'][0]}")
+        print(f"                Receive: {env_state[k]['net'][1]}")
+# Setup the benchmark, invoke, print stats, and delete service.
+# This function will be multithreaded to run several benchmarks concurrently.
+def run_service(env, benchmark_name, deployments, services, entry_service, invoker_configs):
+    # Check if benchmark setup is successful. If not, attempt to delete existing deployments.
+    if not env.setup_functions(deployments, services):
+        env.delete_functions(services)
+        print(f"[ERROR] Benchmark `{benchmark_name}` setup failed, please read error message and try again.")
+        return 0
+    # Get invoker configs.
+    duration = invoker_configs['duration']
+    rps = invoker_configs['rps']
+    # Invoke.
+    (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
+        env.invoke_service(entry_service, duration, rps)
+    lat_stat = env.get_latencies(stat_lat_filename)
+    if lat_stat == []:
+        print(f"[ERROR] No responses were returned for benchmark `{benchmark_name}`, so no latency statistics have been computed.")
+        return
+    
+    # Sample env.
+    env_state = env.sample_env(duration)
+
+    # Print statistics.
+    print(f"[INFO] Invocation statistics for benchmark `{benchmark_name}`:\n")
+    lat_stat.sort()
+    print(
+        f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
+    print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)]/1000, 'ms')
+    print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)]/1000, 'ms')
+    print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)]/1000, 'ms')
+    print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)]/1000, 'ms')
+    print('    env_state:')
+    print_env_state(env_state)
+
+    # Delete when finished.
+    env.delete_functions(services)
 
 def main(args):
     # Instantiate Env.
-    env = Env(args.config)
+    env = Env()
 
-    # Load and initialize data collection configs.
+    # Setup Prometheus and check if setup is successful.
+    if not env.setup_prometheus():
+        print("[ERROR] Prometheus setup failed, please read error message and try again.")
+        return 0
+    
+    # Load and parse json config file.
     with open(args.config, 'r') as f:
         json_data = json.load(f)
-    invoker_params = json_data['invoker_configs']
-    benchmarks = invoker_params['names']
-    rps_values = json_data['rps_values']
-    n_runs = json_data['n_runs']
 
-    # Invoke for every given benchmark at every given target RPS value.
+    benchmarks = json_data['benchmarks']
+    processes = []
+
     for benchmark in benchmarks:
-        print(f'RUNNING BENCHMARK: {benchmark}...\n')
-        
-        # Clear previously collected data.
-        if args.clearprevious == 'true':
-            try:
-                os.remove(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle')
-                os.remove(f'./data/{benchmark}/{benchmark}_tail_lats_95.pickle')
-                os.remove(f'./data/{benchmark}/{benchmark}_tail_lats_99.pickle')
-            except:
-                pass
-            try:
-                os.remove(f'./data/{benchmark}/{benchmark}_drop_rates.pickle')
-            except:
-                pass
-            try:
-                os.remove(f'./data/{benchmark}/{benchmark}_rps_deltas.pickle')
-            except:
-                pass
+        # Read configs for benchmark
+        benchmark_name = benchmark['name']
+        entry_point_function = benchmark['entry-point']
+        functions = benchmark['functions']
+        invoker_configs = benchmark['invoker-configs']
+        entry_point_function_index = functions.index(entry_point_function)
 
-        # Check if the pickle files exist. If so, initialize data collection with the previously collected
-        # values already in place. If not, initialize with empty dicts.
-        try:
-            with open(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle', 'rb') as handle:
-                tail_lats_50 = pickle.load(handle)
-            with open(f'./data/{benchmark}/{benchmark}_tail_lats_95.pickle', 'rb') as handle:
-                tail_lats_95 = pickle.load(handle)
-            with open(f'./data/{benchmark}/{benchmark}_tail_lats_99.pickle', 'rb') as handle:
-                tail_lats_99 = pickle.load(handle)
-        except:
-            tail_lats_50 = {}
-            tail_lats_95 = {}
-            tail_lats_99 = {}
-        try:
-            with open(f'./data/{benchmark}/{benchmark}_drop_rates.pickle', 'rb') as handle:
-                drop_rates = pickle.load(handle)
-        except:
-            drop_rates = {}
-        try:
-            with open(f'./data/{benchmark}/{benchmark}_rps_deltas.pickle', 'rb') as handle:
-                rps_deltas = pickle.load(handle)
-        except:
-            rps_deltas = {}
+        # Instantiate Deployments and Services
+        deployments = []
+        services = []
+        for function in functions:
+            # Instantiate Deployment objects
+            file_name = f"k8s-yamls/{function}.yaml"
+            with open(path.join(path.dirname(__file__), file_name)) as f:
+                dep, svc = yaml.load_all(f, Loader=SafeLoader)
+            deployment = Deployment(dep, env.api)
+            deployments.append(deployment)
 
-        # Check if setup is successful. If not, attempt to delete existing deployment.
-        if not env.setup():
-            env.delete_deployment()
-            print("[ERROR] Setup failed, please read error message and try again.")
-            return 0
-        
-        # Run invoker for every given target RPS value.
-        for rps in rps_values:
-            print(f'Collecting data for {rps} RPS...\n')
+            # Instantiate Service objects
+            port = svc['spec']['ports'][0]['port']
+            service = Service(function, file_name, port)
+            services.append(service)
+        entry_service = services[entry_point_function_index]
 
-            sample_tail_lats_50 = []
-            sample_tail_lats_95 = []
-            sample_tail_lats_99 = []
-            sample_drop_rates = []
-            sample_rps_deltas = []
-
-            # Run multiple iterations.
-            for i in range(n_runs):
-                # If an error is encountered, keep running until it works.
-                error = True
-                while error:
-                    try:
-                        print(f'Run {i+1}/{n_runs}\n')
-
-                        # Invoke.
-                        (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
-                            env.invoke_service()
-                        lat_stat = env.get_latencies(stat_lat_filename)
-                        if lat_stat == []:
-                            print("[ERROR] No responses were returned, no latency statistics is computed.")
-                            return
-                        lat_stat.sort()
-
-                        # Sample env.
-                        env_state = env.sample_env()
-
-                        # Print statistics.
-                        print("[INFO] Invocation statistics:\n")
-                        lat_stat.sort()
-                        print(
-                            f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
-                        print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
-                        print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
-                        print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
-                        print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
-                        print('    env_state:')
-                        pprint(env_state)
-
-                        # Save collected data to lists.
-                        sample_tail_lats_50.append(lat_stat[(int)(len(lat_stat)*0.50)]/1000)
-                        sample_tail_lats_95.append(lat_stat[(int)(len(lat_stat)*0.95)]/1000)
-                        sample_tail_lats_99.append(lat_stat[(int)(len(lat_stat)*0.99)]/1000)
-                        sample_drop_rates.append((stat_issued - stat_completed) / stat_issued)
-                        sample_rps_deltas.append(stat_real_rps - stat_target_rps)
-                        
-                        # No error was encountered, so the loop continues.
-                        error = False
-
-                    except Exception as err:
-                        print(f'[ERROR] An error occurred while running this run.')
-                        print(f'[ERROR] Error message:\n{err}')
-                        error = True
-                        pass
-
-            # Update dicts using data collected in lists. 
-            sample_tail_lats_50 = np.array(sample_tail_lats_50)
-            sample_tail_lats_95 = np.array(sample_tail_lats_95)
-            sample_tail_lats_99 = np.array(sample_tail_lats_99)
-            sample_drop_rates = np.array(sample_drop_rates)
-            sample_rps_deltas = np.array(sample_rps_deltas)
-            tail_lats_50[stat_target_rps] = sample_tail_lats_50
-            tail_lats_95[stat_target_rps] = sample_tail_lats_95
-            tail_lats_99[stat_target_rps] = sample_tail_lats_99
-            drop_rates[stat_target_rps] = sample_drop_rates
-            rps_deltas[stat_target_rps] = sample_rps_deltas
-
-            # Save dicts to pickle files.
-            with open(f'./data/{benchmark}/{benchmark}_tail_lats_50.pickle', 'wb') as handle:
-                pickle.dump(tail_lats_50, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            with open(f'./data/{benchmark}/{benchmark}_tail_lats_95.pickle', 'wb') as handle:
-                pickle.dump(tail_lats_95, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            with open(f'./data/{benchmark}/{benchmark}_tail_lats_99.pickle', 'wb') as handle:
-                pickle.dump(tail_lats_99, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-            with open(f'./data/{benchmark}/{benchmark}_drop_rates.pickle', 'wb') as handle:
-                pickle.dump(drop_rates, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-            with open(f'./data/{benchmark}/{benchmark}_rps_deltas.pickle', 'wb') as handle:
-                pickle.dump(rps_deltas, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # Create and start process for multiprocessing.
+        p = Process(target=run_service, args=(env, benchmark_name, deployments, services, entry_service, invoker_configs))
+        print(f"[INFO] Process for benchmark `{benchmark_name}` created.\n")
+        p.start()
+        processes.append(p)
     
-    # Delete deployment when finished.
-    env.delete_deployment()
+    # Once all processes have finished, they can be joined.
+    for p in processes:
+        p.join()
+    
+    print("[INFO] Done!")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config')
-    parser.add_argument('--clearprevious')
     args = parser.parse_args()
     main(args)

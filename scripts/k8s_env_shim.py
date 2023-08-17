@@ -19,7 +19,7 @@ def timeout_handler(signum, frame):
     raise Exception("[ERROR] timeout limit exceeded.\n")
 
 class Env:
-    def __init__(self, config_file):
+    def __init__(self):
         # Configs can be set in Configuration class directly or using helper
         # utility. If no argument provided, the config will be loaded from
         # default location.
@@ -30,10 +30,6 @@ class Env:
 
         # Initialize vars
         self.api = client.AppsV1Api()
-
-        # Load and parse json config file.
-        with open(config_file, 'r') as f:
-            self.json_data = json.load(f)
 
         # Some extra vars for later use
         self.total_mem_ = None
@@ -129,11 +125,8 @@ class Env:
         return len(self.k_worker_hostnames_)
 
     # Invoke Service using invoker and return stats
-    def invoke_service(self, service):
+    def invoke_service(self, service, duration, rps):
         ip = service.get_service_ip()
-
-        # Get invoker configs
-        invoke_params = self.json_data['invoker_configs']
 
         # Setup hostname file
         os.system('''echo '[ { "hostname": "''' + ip + '''" } ]' > ''' + INVOKER_FILE + '''endpoints.json''')
@@ -143,8 +136,8 @@ class Env:
         invoker_cmd_join_list = [f'{INVOKER_FILE}/invoker',
                                 '-dbg',
                                 f'-port {service.port}',
-                                f'-time {invoke_params["duration"]}',
-                                f'-rps {invoke_params["rps"]}',
+                                f'-time {duration}',
+                                f'-rps {rps}',
                                 f'-endpointsFile {INVOKER_FILE}/endpoints.json']
         invoker_cmd = ' '.join(invoker_cmd_join_list)
 
@@ -191,8 +184,7 @@ class Env:
 
     # Get cluster runtime stats, such as CPU/mem/network utilization over the past @param interval_sec
     # Returns: {worker_id: {'cpu': [idel, user, system], 'net': [tx, rx], 'mem': free}}
-    def sample_env(self):
-        interval_sec = self.json_data['invoker_configs']['duration']
+    def sample_env(self, interval_sec):
         ret = {}
         for p_id, p_metric in self.k_worker_metrics_.items():
             tpl = {}
