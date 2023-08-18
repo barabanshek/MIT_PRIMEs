@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fibonacci-python
+  namespace: default
+  labels:
+    app: fibonacci-python
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fibonacci-python
+  template:
+    metadata:
+      labels:
+        app: fibonacci-python
+    spec:
+      containers:
+        - name: relay
+          image: docker.io/vhiveease/relay:latest
+          ports:
+            - name: h2c
+              containerPort: 50000
+          args:
+            - --addr=0.0.0.0:50000
+            - --function-endpoint-url=0.0.0.0
+            - --function-endpoint-port=50051
+            - --function-name=fibonacci-python
+            - --value=10
+            - --generator=linear
+            - --lowerBound=1
+            - --upperBound=10
+        - name: fibonacci-python
+          image: docker.io/vhiveease/fibonacci-python:latest
+          args:
+            - --addr=0.0.0.0
+            - --port=50051
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fibonacci-python
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: fibonacci-python
+  ports:
+  - port: 50000
+    targetPort: 50000
