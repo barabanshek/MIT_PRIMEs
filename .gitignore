@@ -1,3 +1,5 @@
 tmp/
 *.log
 *.csv
+server_configs.json
+wandb/
