@@ -1,8 +1,11 @@
 import argparse
 import yaml
 import json
-from multiprocessing import Process
+import time
+import random
 
+from multiprocessing import Process, Array
+from subprocess import run
 from yaml.loader import SafeLoader
 from os import path
 from k8s_env_shim import Env
@@ -10,6 +13,27 @@ from pprint import pprint
 from setup_service import Service
 from setup_deployment import Deployment
 
+global current_benchmarks
+current_benchmarks = []
+
+# Check if the services for a benchmark have already been deployed.
+def benchmark_already_deployed(benchmark_name, services):
+    return benchmark_name in current_benchmarks
+    # rets = [run(f"kubectl get service/{service.service_name}", capture_output=True, shell=True).returncode for service in services]
+    # return sum(rets) == 0
+
+# Randomly generate a subset of available benchmarks to run at random RPS and duration.
+def generate_workload(benchmarks):
+    workload = []
+    size = random.choice(range(0, len(benchmarks)+1))
+    subset = random.sample(benchmarks, size)
+    for benchmark in subset:
+        rps = random.randint(benchmark['invoker-configs']['rps-min'], benchmark['invoker-configs']['rps-max'])
+        duration = random.randint(benchmark['invoker-configs']['duration-min'], benchmark['invoker-configs']['duration-max'])
+        workload.append((benchmark, rps, duration))
+    return workload
+
+# Print the Env state nicely.
 def print_env_state(env_state):
     for k in env_state.keys():
         print(f"        Node {k}:")
@@ -22,17 +46,21 @@ def print_env_state(env_state):
         print("            Network Throughput (bps):")
         print(f"                Transmit: {env_state[k]['net'][0]}")
         print(f"                Receive: {env_state[k]['net'][1]}")
+
 # Setup the benchmark, invoke, print stats, and delete service.
 # This function will be multithreaded to run several benchmarks concurrently.
-def run_service(env, benchmark_name, deployments, services, entry_service, invoker_configs):
-    # Check if benchmark setup is successful. If not, attempt to delete existing deployments.
-    if not env.setup_functions(deployments, services):
-        env.delete_functions(services)
-        print(f"[ERROR] Benchmark `{benchmark_name}` setup failed, please read error message and try again.")
-        return 0
-    # Get invoker configs.
-    duration = invoker_configs['duration']
-    rps = invoker_configs['rps']
+def run_service(env, benchmark_name, deployments, services, entry_service, rps, duration):
+    # Check if the benchmark already exists. If not, deploy. If so, skip deployment.
+    if not benchmark_already_deployed(benchmark_name, services):
+        # Add this benchmark to the current benchmark list
+        current_benchmarks.append(benchmark_name)
+        # Check if benchmark setup is successful. If not, attempt to delete existing deployments.
+        # TODO: deploy only the services that the benchmark is missing. For example, if streaming and decoder are ready, deploy recog only.
+        if not env.setup_functions(deployments, services):
+            current_benchmarks.remove(benchmark_name)             
+            env.delete_functions(services)
+            print(f"[ERROR] Benchmark `{benchmark_name}` setup failed, please read error message and try again.")
+            return 0
     # Invoke.
     (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
         env.invoke_service(entry_service, duration, rps)
@@ -57,6 +85,7 @@ def run_service(env, benchmark_name, deployments, services, entry_service, invok
     print_env_state(env_state)
 
     # Delete when finished.
+    current_benchmarks.remove(benchmark_name)   
     env.delete_functions(services)
 
 def main(args):
@@ -75,38 +104,50 @@ def main(args):
     benchmarks = json_data['benchmarks']
     processes = []
 
-    for benchmark in benchmarks:
-        # Read configs for benchmark
-        benchmark_name = benchmark['name']
-        entry_point_function = benchmark['entry-point']
-        functions = benchmark['functions']
-        invoker_configs = benchmark['invoker-configs']
-        entry_point_function_index = functions.index(entry_point_function)
+    t_start = time.time()
+    while time.time() - t_start < 30:
+        # Generate a list of random (benchmark, rps, duration) values
+        workload = generate_workload(benchmarks)
 
-        # Instantiate Deployments and Services
-        deployments = []
-        services = []
-        for function in functions:
-            # Instantiate Deployment objects
-            file_name = f"k8s-yamls/{function}.yaml"
-            with open(path.join(path.dirname(__file__), file_name)) as f:
-                dep, svc = yaml.load_all(f, Loader=SafeLoader)
-            deployment = Deployment(dep, env.api)
-            deployments.append(deployment)
+        for benchmark, rps, duration in workload:
+            benchmark_name = benchmark['name']
+            print(f"[INFO] Proposed incoming workload: {benchmark_name} at {rps} RPS for {duration} seconds.")
+            functions = benchmark['functions']
+            # Read configs for benchmark
+            entry_point_function = benchmark['entry-point']
+            entry_point_function_index = functions.index(entry_point_function)
 
-            # Instantiate Service objects
-            port = svc['spec']['ports'][0]['port']
-            service = Service(function, file_name, port)
-            services.append(service)
-        entry_service = services[entry_point_function_index]
+            # Instantiate Services and Deployments
+            services = []
+            deployments = []
+            for function in functions:
+                file_name = f"k8s-yamls/{function}.yaml"
+                # Instantiate Service objects
+                with open(path.join(path.dirname(__file__), file_name)) as f:
+                    dep, svc = yaml.load_all(f, Loader=SafeLoader)
+                port = svc['spec']['ports'][0]['port']
+                service = Service(function, file_name, port)
+                services.append(service)
 
-        # Create and start process for multiprocessing.
-        p = Process(target=run_service, args=(env, benchmark_name, deployments, services, entry_service, invoker_configs))
-        print(f"[INFO] Process for benchmark `{benchmark_name}` created.\n")
-        p.start()
-        processes.append(p)
-    
-    # Once all processes have finished, they can be joined.
+                # Instantiate Deployment objects
+                deployment = Deployment(dep, env.api)
+                deployments.append(deployment)
+
+            entry_service = services[entry_point_function_index]
+            # Check if the benchmark has already been deployed. If so, ignore it.
+            print(current_benchmarks)
+            if benchmark_already_deployed(benchmark_name, services):
+                print(f"[INFO] Dropped benchmark {benchmark_name} because it is already running.")
+                continue
+            
+            # If benchmark can be deployed, create and start process for multiprocessing.
+            p = Process(target=run_service, args=(env, benchmark_name, deployments, services, entry_service, rps, duration))
+            print(f"[INFO] Process for benchmark `{benchmark_name}` created.\n")
+            p.start()
+            processes.append(p)
+        time.sleep(30)
+
+# Once all processes have finished, they can be joined.
     for p in processes:
         p.join()
     
