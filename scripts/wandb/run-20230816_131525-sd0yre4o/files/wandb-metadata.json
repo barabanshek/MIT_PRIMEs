@@ -1,0 +1,142 @@
+{
+    "os": "Linux-5.4.0-100-generic-x86_64-with-glibc2.29",
+    "python": "3.8.10",
+    "heartbeatAt": "2023-08-16T19:15:26.285727",
+    "startedAt": "2023-08-16T19:15:25.883173",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "--config",
+        "configs.json",
+        "--rlconfig",
+        "rl_configs.json"
+    ],
+    "state": "running",
+    "program": "rl_script.py",
+    "codePath": "scripts/rl_script.py",
+    "git": {
+        "remote": "https://github.com/barabanshek/MIT_PRIMEs.git",
+        "commit": "1f332d998f0bdd9f536d3bc1bac0362db87eefe8"
+    },
+    "email": null,
+    "root": "/users/als2005/python-api/MIT_PRIMEs",
+    "host": "node-0.alan.ragger-pg0.utah.cloudlab.us",
+    "username": "als2005",
+    "executable": "/usr/bin/python3",
+    "cpu_count": 10,
+    "cpu_count_logical": 20,
+    "cpu_freq": {
+        "current": 2731.1907,
+        "min": 1200.0,
+        "max": 3400.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 2686.716,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2640.369,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2885.121,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2601.826,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2649.688,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2729.559,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2947.607,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2908.259,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2707.266,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2758.541,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2870.423,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2646.338,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2881.617,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2597.347,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2621.059,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2691.376,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2753.444,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2713.261,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2681.569,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2652.428,
+            "min": 1200.0,
+            "max": 3400.0
+        }
+    ],
+    "disk": {
+        "total": 439.9871520996094,
+        "used": 9.28836441040039
+    },
+    "memory": {
+        "total": 62.687767028808594
+    }
+}
