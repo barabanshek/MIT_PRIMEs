@@ -62,16 +62,6 @@ class Deployment:
         )
 
         print(f"\n[UPDATE] deployment `{self.deployment_name}` created.\n")
-        # print("%s\t%s\t\t\t%s\t%s" % ("NAMESPACE", "NAME", "REVISION", "IMAGE"))
-        # print(
-        #     "%s\t\t%s\t%s\t\t%s\n"
-        #     % (
-        #         resp.metadata.namespace,
-        #         resp.metadata.name,
-        #         resp.metadata.generation,
-        #         resp.spec.template.spec.containers[0].image,
-        #     )
-        # )
         return resp
     
     # Check if all pods are ready.
@@ -86,28 +76,6 @@ class Deployment:
     def get_deployment_object(self):
         return self.deployment_object
 
-    # Ignore for now -- we don't need this yet
-    # def update_deployment(self):
-    #     # Update container image
-        # self.deployment_object.spec.template.spec.containers[0].image = "nginx:1.16.0"
-
-    #     # patch the deployment
-    #     resp = self.api.patch_namespaced_deployment(
-    #         name=self.deployment_name, namespace="default", body=self.deployment_object
-    #     )
-
-    #     print("\n[INFO] deployment's container image updated.\n")
-    #     print("%s\t%s\t\t\t%s\t%s" % ("NAMESPACE", "NAME", "REVISION", "IMAGE"))
-    #     print(
-    #         "%s\t\t%s\t%s\t\t%s\n"
-    #         % (
-    #             resp.metadata.namespace,
-    #             resp.metadata.name,
-    #             resp.metadata.generation,
-    #             resp.spec.template.spec.containers[0].image,
-    #         )
-    #     )
-
     # Scale the number of replicas in the Deployment.
     def scale_deployment(self, replicas):
         # Update container scale
@@ -119,42 +87,6 @@ class Deployment:
         )
 
         print("\n[UPDATE] deployment's container replicas scaled.\n")
-        # print("%s\t%s\t\t\t%s\t%s" % ("NAMESPACE", "NAME", "REVISION", "REPLICAS"))
-        # print(
-        #     "%s\t\t%s\t%s\t\t%s\n"
-        #     % (
-        #         resp.metadata.namespace,
-        #         resp.metadata.name,
-        #         resp.metadata.generation,
-        #         resp.spec.replicas,
-        #     )
-        # )
-
-    # Restart the Deployment
-    def restart_deployment(self):
-        # update `spec.template.metadata` section
-        # to add `kubectl.kubernetes.io/restartedAt` annotation
-        self.deployment_object.spec.template.metadata.annotations = {
-            "kubectl.kubernetes.io/restartedAt": datetime.datetime.utcnow()
-            .replace(tzinfo=pytz.UTC)
-            .isoformat()
-        }
-
-        # patch the deployment
-        resp = self.api.patch_namespaced_deployment(
-            name=self.deployment_name, namespace=self.namespace, body=self.deployment_object
-        )
-
-        print(f"\n[RESTART] deployment `{self.deployment_name}` restarted.\n")
-        # print("%s\t\t\t%s\t%s" % ("NAME", "REVISION", "RESTARTED-AT"))
-        # print(
-        #     "%s\t%s\t\t%s\n"
-        #     % (
-        #         resp.metadata.name,
-        #         resp.metadata.generation,
-        #         resp.spec.template.metadata.annotations,
-        #     )
-        # )
 
     # Delete the Deployment.
     def delete_deployment(self):
