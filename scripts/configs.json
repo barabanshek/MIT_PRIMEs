@@ -1,0 +1,30 @@
+{"benchmarks" : [
+    {
+        "name" : "fibonacci-python",
+        "entry-point" : "fibonacci-python",
+        "functions" : ["fibonacci-python"],
+        "invoker-configs" : {
+            "duration" : 20,
+            "rps" : 400
+            }
+    },
+    {
+        "name" : "hotel-app-geo",
+        "entry-point" : "hotel-app-geo",
+        "functions" : ["hotel-app-geo"],
+        "invoker-configs" : {
+            "duration" : 45,
+            "rps" : 200
+            }
+    },
+    {
+        "name" : "video-analytics",
+        "entry-point" : "streaming",
+        "functions" : ["streaming", "decoder", "recog"],
+        "invoker-configs" : {
+            "duration" : 30,
+            "rps" : 30
+            }
+    }
+]
+}

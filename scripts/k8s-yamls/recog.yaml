@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recog
+  namespace: default
+  labels:
+    app: recog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: recog
+  template:
+    metadata:
+      labels:
+        app: recog
+    spec:
+      containers:
+        - name: recog
+          image: docker.io/vhiveease/video-analytics-recog:latest
+          imagePullPolicy: Always
+          env:
+            - name: TRANSFER_TYPE
+              value: "INLINE"
+            - name: MAX_RECOG_SERVER_THREADS
+              value: "10"
+            - name: ENABLE_TRACING
+              value: "false"
+          args: []
+          ports:
+            # For `h2c`, see https://knative.tips/networking/http2/
+            - name: h2c
+              containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recog
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: recog
+  ports:
+  - port: 80
+    targetPort: 80

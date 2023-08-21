@@ -13,8 +13,6 @@ kDemoDeploymentActions = {
         "port": 80
     }
 }
-# 90th pct latency
-tail_lat = None
 
 def main(args):
     env = Env(args.serverconfig)
@@ -64,11 +62,12 @@ def main(args):
     # Sample env.
     env_state = env.sample_env(args.duration)
     lat_stat = env.get_latencies(stat_lat_filename)
-    lat_stat.sort()
-    tail_lat = lat_stat[(int)(len(lat_stat) * 0.90)]
-
+    if lat_stat == []:
+        print("No responses were returned, no latency statistics is computed.")
+        return
 
     # Print statistics.
+    lat_stat.sort()
     print(
         f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
     print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
