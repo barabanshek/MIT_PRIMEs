@@ -88,6 +88,21 @@ class Deployment:
 
         print("\n[UPDATE] deployment's container replicas scaled.\n")
 
+    def scale_pod(self, cpu, mem):
+        self.deployment_object.spec.template.spec.containers[1].resources.requests.memory = mem
+        self.deployment_object.spec.template.spec.containers[1].resources.requests.cpu = cpu
+        self.deployment_object.spec.template.spec.containers[1].resources.limits.memory = mem
+        self.deployment_object.spec.template.spec.containers[1].resources.limits.cpu = cpu
+
+        # patch the deployment
+        resp = self.api.patch_namespaced_deployment_scale(
+            name=self.deployment_name, namespace=self.namespace, body=self.deployment_object
+        )
+
+        print("\n[UPDATE] deployment's verticle scaled.\n")
+
+
+
     # Delete the Deployment.
     def delete_deployment(self):
         # Delete deployment

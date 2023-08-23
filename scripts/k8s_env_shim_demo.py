@@ -81,7 +81,7 @@ def main(args):
     run_service(env, entry_service, invoker_configs)
 
     # Scale up pod replicas.
-    env.scale_deployments(deployments, 5)
+    env.scale_pods(deployments, "100m", "10Mi")
 
     run_service(env, entry_service, invoker_configs)
 
