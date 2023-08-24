@@ -4,16 +4,16 @@ metadata:
   name: hotel-app-user
   namespace: default
   labels:
-    app: hotel-app-rate
+    app: hotel-app-user
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: hotel-app-rate
+      app: hotel-app-user
   template:
     metadata:
       labels:
-        app: hotel-app-rate
+        app: hotel-app-user
     spec:
       containers:
         # Relay --------------
