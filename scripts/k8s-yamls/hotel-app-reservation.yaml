@@ -42,12 +42,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: hotel-app-recommendation
+  name: hotel-app-reservation
   namespace: default
 spec:
   type: ClusterIP
   selector:
-    app: hotel-app-recommendation
+    app: hotel-app-reservation
   ports:
   - port: 50000
     targetPort: 50000
