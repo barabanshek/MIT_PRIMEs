@@ -130,7 +130,7 @@ def main(args):
         processes = []
 
         t_start = time.time()
-        while time.time() - t_start < 30:
+        while time.time() - t_start < args.t:
             # Generate a list of random (benchmark, rps, duration) values
             workload = dc.generate_workload(benchmarks)
 
@@ -173,7 +173,7 @@ def main(args):
                 print(f"[INFO] Process for benchmark `{benchmark_name}` created.\n")
                 p.start()
                 processes.append(p)
-            time.sleep(5)
+            time.sleep(args.r)
 
         # Once all processes have finished, they can be joined.
         for p in processes:
@@ -186,6 +186,11 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    # Config file for benchmarks
     parser.add_argument('--config')
+    # Total time to run (seconds)
+    parser.add_argument('--t')
+    # Rate at which to generate workloads (seconds)
+    parser.add_argument('--r')
     args = parser.parse_args()
     main(args)
