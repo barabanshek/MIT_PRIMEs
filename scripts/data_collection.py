@@ -4,7 +4,7 @@ import json
 import time
 import random
 
-from multiprocessing import Process, Array
+from multiprocessing import Process, Array, Lock
 from subprocess import run
 from yaml.loader import SafeLoader
 from os import path
@@ -13,12 +13,14 @@ from pprint import pprint
 from setup_service import Service
 from setup_deployment import Deployment
 
+lock = Lock()
+
 global current_benchmarks
-current_benchmarks = []
+current_benchmarks = {}
 
 # Check if the services for a benchmark have already been deployed.
-def benchmark_already_deployed(benchmark_name, services):
-    return benchmark_name in current_benchmarks
+def benchmark_already_deployed(benchmark_name):
+    return benchmark_name in current_benchmarks and current_benchmarks[benchmark_name]
     # rets = [run(f"kubectl get service/{service.service_name}", capture_output=True, shell=True).returncode for service in services]
     # return sum(rets) == 0
 
@@ -51,16 +53,13 @@ def print_env_state(env_state):
 # This function will be multithreaded to run several benchmarks concurrently.
 def run_service(env, benchmark_name, deployments, services, entry_service, rps, duration):
     # Check if the benchmark already exists. If not, deploy. If so, skip deployment.
-    if not benchmark_already_deployed(benchmark_name, services):
-        # Add this benchmark to the current benchmark list
-        current_benchmarks.append(benchmark_name)
-        # Check if benchmark setup is successful. If not, attempt to delete existing deployments.
-        # TODO: deploy only the services that the benchmark is missing. For example, if streaming and decoder are ready, deploy recog only.
-        if not env.setup_functions(deployments, services):
-            current_benchmarks.remove(benchmark_name)             
-            env.delete_functions(services)
-            print(f"[ERROR] Benchmark `{benchmark_name}` setup failed, please read error message and try again.")
-            return 0
+    # Check if benchmark setup is successful. If not, attempt to delete existing deployments.
+    # TODO: deploy only the services that the benchmark is missing. For example, if streaming and decoder are ready, deploy recog only.
+    if not env.setup_functions(deployments, services):
+        current_benchmarks[benchmark_name] = 0
+        env.delete_functions(services)
+        print(f"[ERROR] Benchmark `{benchmark_name}` setup failed, please read error message and try again.")
+        return 0
     # Invoke.
     (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
         env.invoke_service(entry_service, duration, rps)
@@ -85,7 +84,7 @@ def run_service(env, benchmark_name, deployments, services, entry_service, rps, 
     print_env_state(env_state)
 
     # Delete when finished.
-    current_benchmarks.remove(benchmark_name)   
+    current_benchmarks[benchmark_name] = 0
     env.delete_functions(services)
 
 def main(args):
@@ -135,17 +134,21 @@ def main(args):
 
             entry_service = services[entry_point_function_index]
             # Check if the benchmark has already been deployed. If so, ignore it.
-            print(current_benchmarks)
-            if benchmark_already_deployed(benchmark_name, services):
-                print(f"[INFO] Dropped benchmark {benchmark_name} because it is already running.")
-                continue
+            print("[INFO] Current benchmark statuses:")
+            # Sort current benchmark statuses
+            pprint({k: v for k, v in sorted(current_benchmarks.items(), key=lambda item: item[1], reverse=True)})
+            with lock:
+                if benchmark_already_deployed(benchmark_name):
+                    print(f"[INFO] Dropped proposed benchmark {benchmark_name} because it is already running.")
+                    continue
             
             # If benchmark can be deployed, create and start process for multiprocessing.
             p = Process(target=run_service, args=(env, benchmark_name, deployments, services, entry_service, rps, duration))
+            current_benchmarks[benchmark_name] = 1
             print(f"[INFO] Process for benchmark `{benchmark_name}` created.\n")
             p.start()
             processes.append(p)
-        time.sleep(30)
+        time.sleep(5)
 
 # Once all processes have finished, they can be joined.
     for p in processes:
