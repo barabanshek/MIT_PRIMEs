@@ -4,8 +4,8 @@ import pickle
 
 from pprint import pprint
 
-def main(args):
-    data_file = args.data
+def main():
+    data_file = 'data.pickle'
     with open(data_file, 'rb') as handle:
         data = pickle.load(handle)
     df = pd.DataFrame(data)
@@ -14,7 +14,4 @@ def main(args):
     return df
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--data')
-    args = parser.parse_args()
-    main(args)
+    main()
