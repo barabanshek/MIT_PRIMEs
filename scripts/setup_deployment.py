@@ -89,17 +89,29 @@ class Deployment:
         print("\n[UPDATE] deployment's container replicas scaled.\n")
 
     def scale_pod(self, cpu, mem):
-        self.deployment_object.spec.template.spec.containers[1].resources.requests.memory = mem
-        self.deployment_object.spec.template.spec.containers[1].resources.requests.cpu = cpu
-        self.deployment_object.spec.template.spec.containers[1].resources.limits.memory = mem
-        self.deployment_object.spec.template.spec.containers[1].resources.limits.cpu = cpu
+        # update the recommendations
+        container_recommendation = {"containerName": "", "lowerBound": {}, "target": {}, "uncappedTarget": {}, "upperBound": {}}
+        container_recommendation["lowerBound"]['cpu'] = str(cpu) + 'm'
+        container_recommendation["target"]['cpu'] = str(cpu) + 'm'
+        container_recommendation["uncappedTarget"]['cpu'] = str(cpu) + 'm'
+        container_recommendation["upperBound"]['cpu'] = str(cpu) + 'm'
+        container_recommendation["lowerBound"]['memory'] = str(mem) + 'Mi'
+        container_recommendation["target"]['memory'] = str(mem) + 'Mi'
+        container_recommendation["uncappedTarget"]['memory'] = str(mem) + 'Mi'
+        container_recommendation["upperBound"]['memory'] = str(mem) + 'Mi'
 
-        # patch the deployment
-        resp = self.api.patch_namespaced_deployment_scale(
-            name=self.deployment_name, namespace=self.namespace, body=self.deployment_object
-        )
+        recommendations = []
+        containers = self.dep['spec']['template']['spec']['containers'][1]["name"]
+        for container in containers:
+            vertical_scaling_recommendation = container_recommendation.copy()
+            vertical_scaling_recommendation['containerName'] = container
+            recommendations.append(vertical_scaling_recommendation)
 
-        print("\n[UPDATE] deployment's verticle scaled.\n")
+        patched_mpa = {"recommendation": {"containerRecommendations": recommendations}, "currentReplicas": self.states['num_replicas'], "desiredReplicas": self.states['num_replicas']}
+        body = {"status": patched_mpa}
+        resp = self.api.patch_namespaced_custom_object(namespace=self.namespace, name=self.deployment_name, body=body)
+
+
 
 
 
