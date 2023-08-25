@@ -107,9 +107,10 @@ class Deployment:
             vertical_scaling_recommendation['containerName'] = container
             recommendations.append(vertical_scaling_recommendation)
 
-        patched_mpa = {"recommendation": {"containerRecommendations": recommendations}, "currentReplicas": self.states['num_replicas'], "desiredReplicas": self.states['num_replicas']}
+        patched_mpa = {"recommendation": {"containerRecommendations": recommendations}, "currentReplicas": self.deployment_object.spec.replicas, "desiredReplicas": self.deployment_object.spec.replicas}
         body = {"status": patched_mpa}
-        resp = self.api.patch_namespaced_custom_object(namespace=self.namespace, name=self.deployment_name, body=body)
+        resp = self.api.patch_namespaced_deployment(namespace=self.namespace, name=self.deployment_name, body=body)
+        print("\n[UPDATE] container verticle scaled.\n")
 
 
 
