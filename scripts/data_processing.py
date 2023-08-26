@@ -9,8 +9,18 @@ def main():
     with open(data_file, 'rb') as handle:
         data = pickle.load(handle)
     df = pd.DataFrame(data)
-    df.columns = ['Benchmark', 'RPS', 'Duration (s)', 'Requests Issued', 'Requests Completed', 'Real RPS', 'Target RPS', '50th', '90th', '99th', '99.9th']
-    print(df.head(10))
+    df.columns = ['Benchmark', 
+                  'RPS', 
+                  'Duration (s)', 
+                  'Requests Issued', 
+                  'Requests Completed', 
+                  'Real RPS', 
+                  'Target RPS', 
+                  '50th', '90th', '99th', '99.9th', 
+                  'avg_cpu_idle', 'avg_cpu_user', 'avg_cpu_system',
+                              'avg_mem_free',
+                              'avg_net_transmit (bps)', 'avg_net_receive (bps)']
+    print(df)
     return df
 
 if __name__ == "__main__":

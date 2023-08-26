@@ -5,6 +5,7 @@ import time
 import random
 import pandas as pd
 import pickle
+import numpy as np
 
 from multiprocessing import Process, Array, Lock, Manager
 from subprocess import run
@@ -40,6 +41,19 @@ class DataCollect:
             workload.append((benchmark, rps, duration))
         return workload
 
+    # Unpack Env state.
+    def unpack_env_state(self, env_state):
+        ret = []
+        for k in env_state.keys():
+            cpu_idle = env_state[k]['cpu'][0]
+            cpu_user = env_state[k]['cpu'][1]
+            cpu_system = env_state[k]['cpu'][2]
+            mem_free = env_state[k]['mem']
+            net_transmit = env_state[k]['net'][0]
+            net_receive = env_state[k]['net'][1]
+            ret.append((cpu_idle, cpu_user, cpu_system, mem_free, net_transmit, net_receive))
+        return ret
+    
     # Print the Env state nicely.
     def print_env_state(self, env_state):
         for k in env_state.keys():
@@ -91,6 +105,16 @@ class DataCollect:
         lat_90 = lat_stat[(int)(len(lat_stat) * 0.90)]
         lat_99 = lat_stat[(int)(len(lat_stat) * 0.99)]
         lat_999 = lat_stat[(int)(len(lat_stat) * 0.999)]
+
+        unpacked_env_state = self.unpack_env_state(env_state)
+        num_nodes = len(unpacked_env_state)
+        avgs = np.zeros(len(unpacked_env_state[0]))
+
+        for i in range(num_nodes):
+            avgs = np.add(avgs, np.array(unpacked_env_state[i])/num_nodes)
+                    
+        cpu_idle, cpu_user, cpu_system, mem_free, net_transmit, net_receive = avgs
+
         if self.verbose:
             print(f"[INFO] Invocation statistics for benchmark `{benchmark_name}`:\n")
             print(
@@ -107,7 +131,17 @@ class DataCollect:
         self.current_benchmarks[benchmark_name] = 0
         # Update data table.
         with self.lock:
-            self.data.append([benchmark_name, rps, duration, stat_issued, stat_completed, stat_real_rps, stat_target_rps, lat_50, lat_90, lat_99, lat_999])
+            self.data.append([benchmark_name, 
+                              rps, 
+                              duration, 
+                              stat_issued, 
+                              stat_completed, 
+                              stat_real_rps, 
+                              stat_target_rps, 
+                              lat_50, lat_90, lat_99, lat_999,
+                              cpu_idle, cpu_user, cpu_system,
+                              mem_free,
+                              net_transmit, net_receive])
 
 def main(args):
     with Manager() as manager:
