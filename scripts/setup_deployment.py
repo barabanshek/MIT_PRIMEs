@@ -33,6 +33,7 @@ class Deployment:
             args=conts[i]['args'],
             name=conts[i]['name'],
             image=conts[i]['image'],
+            resources=conts[i]['resources'],
             ports=ports,
         ) for i in range(len(conts))]
 
@@ -90,26 +91,13 @@ class Deployment:
 
     def scale_pod(self, cpu, mem):
         # update the recommendations
-        container_recommendation = {"containerName": "", "lowerBound": {}, "target": {}, "uncappedTarget": {}, "upperBound": {}}
-        container_recommendation["lowerBound"]['cpu'] = str(cpu) + 'm'
-        container_recommendation["target"]['cpu'] = str(cpu) + 'm'
-        container_recommendation["uncappedTarget"]['cpu'] = str(cpu) + 'm'
-        container_recommendation["upperBound"]['cpu'] = str(cpu) + 'm'
-        container_recommendation["lowerBound"]['memory'] = str(mem) + 'Mi'
-        container_recommendation["target"]['memory'] = str(mem) + 'Mi'
-        container_recommendation["uncappedTarget"]['memory'] = str(mem) + 'Mi'
-        container_recommendation["upperBound"]['memory'] = str(mem) + 'Mi'
+        for i in range(len(self.deployment_object.spec.template.spec.containers)):
+            self.deployment_object.spec.template.spec.containers[i].resources["limits"]["cpu"] = cpu
+            self.deployment_object.spec.template.spec.containers[i].resources["limits"]["memory"] = mem
+            self.deployment_object.spec.template.spec.containers[i].resources["requests"]["cpu"] = cpu
+            self.deployment_object.spec.template.spec.containers[i].resources["requests"]["memory"] = mem
 
-        recommendations = []
-        containers = self.dep['spec']['template']['spec']['containers'][1]["name"]
-        for container in containers:
-            vertical_scaling_recommendation = container_recommendation.copy()
-            vertical_scaling_recommendation['containerName'] = container
-            recommendations.append(vertical_scaling_recommendation)
-
-        patched_mpa = {"recommendation": {"containerRecommendations": recommendations}, "currentReplicas": self.deployment_object.spec.replicas, "desiredReplicas": self.deployment_object.spec.replicas}
-        body = {"status": patched_mpa}
-        resp = self.api.patch_namespaced_deployment(namespace=self.namespace, name=self.deployment_name, body=body)
+        resp = self.api.patch_namespaced_deployment(namespace=self.namespace, name=self.deployment_name, body=self.deployment_object)
         print("\n[UPDATE] container verticle scaled.\n")
 
 

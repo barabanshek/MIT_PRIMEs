@@ -115,7 +115,7 @@ class Env:
             except:
                 assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
 
-    def scale_pods(self, deployments, cpu, mem, wait_to_scale=True, timeout=60):
+    def scale_pods(self, deployments, cpu, mem, wait_to_scale=False, timeout=60):
         # Scale replicas
         for deployment in deployments:
             # Start the timer
