@@ -86,13 +86,13 @@ class DataCollect:
         env_state = env.sample_env(duration)
 
         # Print statistics.
+        lat_stat.sort()
+        lat_50 = lat_stat[(int)(len(lat_stat) * 0.5)]
+        lat_90 = lat_stat[(int)(len(lat_stat) * 0.90)]
+        lat_99 = lat_stat[(int)(len(lat_stat) * 0.99)]
+        lat_999 = lat_stat[(int)(len(lat_stat) * 0.999)]
         if self.verbose:
             print(f"[INFO] Invocation statistics for benchmark `{benchmark_name}`:\n")
-            lat_stat.sort()
-            lat_50 = lat_stat[(int)(len(lat_stat) * 0.5)]
-            lat_90 = lat_stat[(int)(len(lat_stat) * 0.90)]
-            lat_99 = lat_stat[(int)(len(lat_stat) * 0.99)]
-            lat_999 = lat_stat[(int)(len(lat_stat) * 0.999)]
             print(
                 f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
             print('    50th: ', lat_50/1000, 'ms')
@@ -103,9 +103,8 @@ class DataCollect:
             self.print_env_state(env_state)
 
         # Delete when finished.   
-        self.current_benchmarks[benchmark_name] = 0
         env.delete_functions(services)
-
+        self.current_benchmarks[benchmark_name] = 0
         # Update data table.
         with self.lock:
             self.data.append([benchmark_name, rps, duration, stat_issued, stat_completed, stat_real_rps, stat_target_rps, lat_50, lat_90, lat_99, lat_999])
