@@ -12,16 +12,18 @@ from yaml.loader import SafeLoader
 from os import path
 from k8s_env_shim import Env
 from pprint import pprint
+from itertools import chain, combinations
 from setup_service import Service
 from setup_deployment import Deployment
 
 
 class DataCollect:
 
-    def __init__(self, data, current_benchmarks):
+    def __init__(self, data, current_benchmarks, verbose=False):
         self.data = data
         self.current_benchmarks = current_benchmarks
         self.lock = Lock()
+        self.verbose = verbose
 
     # Check if the services for a benchmark have already been deployed.
     def benchmark_already_deployed(self, benchmark_name):
@@ -30,8 +32,8 @@ class DataCollect:
     # Randomly generate a subset of available benchmarks to run at random RPS and duration.
     def generate_workload(self, benchmarks):
         workload = []
-        size = random.choice(range(0, len(benchmarks)+1))
-        subset = random.sample(benchmarks, size)
+        subsets = list(chain.from_iterable(combinations(benchmarks, r) for r in range(len(benchmarks)+1)))
+        subset = random.choice(subsets)
         for benchmark in subset:
             rps = random.randint(benchmark['invoker-configs']['rps-min'], benchmark['invoker-configs']['rps-max'])
             duration = random.randint(benchmark['invoker-configs']['duration-min'], benchmark['invoker-configs']['duration-max'])
@@ -84,20 +86,21 @@ class DataCollect:
         env_state = env.sample_env(duration)
 
         # Print statistics.
-        print(f"[INFO] Invocation statistics for benchmark `{benchmark_name}`:\n")
-        lat_stat.sort()
-        lat_50 = lat_stat[(int)(len(lat_stat) * 0.5)]
-        lat_90 = lat_stat[(int)(len(lat_stat) * 0.90)]
-        lat_99 = lat_stat[(int)(len(lat_stat) * 0.99)]
-        lat_999 = lat_stat[(int)(len(lat_stat) * 0.999)]
-        print(
-            f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
-        print('    50th: ', lat_50/1000, 'ms')
-        print('    90th: ', lat_90/1000, 'ms')
-        print('    99th: ', lat_99/1000, 'ms')
-        print('    99.9th: ', lat_999/1000, 'ms')
-        print('    env_state:')
-        self.print_env_state(env_state)
+        if self.verbose:
+            print(f"[INFO] Invocation statistics for benchmark `{benchmark_name}`:\n")
+            lat_stat.sort()
+            lat_50 = lat_stat[(int)(len(lat_stat) * 0.5)]
+            lat_90 = lat_stat[(int)(len(lat_stat) * 0.90)]
+            lat_99 = lat_stat[(int)(len(lat_stat) * 0.99)]
+            lat_999 = lat_stat[(int)(len(lat_stat) * 0.999)]
+            print(
+                f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
+            print('    50th: ', lat_50/1000, 'ms')
+            print('    90th: ', lat_90/1000, 'ms')
+            print('    99th: ', lat_99/1000, 'ms')
+            print('    99.9th: ', lat_999/1000, 'ms')
+            print('    env_state:')
+            self.print_env_state(env_state)
 
         # Delete when finished.   
         self.current_benchmarks[benchmark_name] = 0
@@ -109,13 +112,18 @@ class DataCollect:
 
 def main(args):
     with Manager() as manager:
+        # Initialize shared variables
         data = manager.list()
         current_benchmarks = manager.dict()
+
+        # Verbosity
+        verbose = args.v == 't'
+
         # Instantiate Env.
-        env = Env()
+        env = Env(verbose=verbose)
 
         # Instantiate DataCollect.
-        dc = DataCollect(data, current_benchmarks)
+        dc = DataCollect(data, current_benchmarks, verbose=verbose)
 
         # Setup Prometheus and check if setup is successful.
         if not env.setup_prometheus():
@@ -129,14 +137,16 @@ def main(args):
         benchmarks = json_data['benchmarks']
         processes = []
 
+
         t_start = time.time()
-        while time.time() - t_start < args.t:
+        while time.time() - t_start < int(args.t):
             # Generate a list of random (benchmark, rps, duration) values
             workload = dc.generate_workload(benchmarks)
 
             for benchmark, rps, duration in workload:
                 benchmark_name = benchmark['name']
-                print(f"[INFO] Proposed incoming workload: {benchmark_name} at {rps} RPS for {duration} seconds.")
+                if verbose:
+                    print(f"[INFO] Proposed incoming workload: {benchmark_name} at {rps} RPS for {duration} seconds.")
                 functions = benchmark['functions']
                 # Read configs for benchmark
                 entry_point_function = benchmark['entry-point']
@@ -160,20 +170,22 @@ def main(args):
 
                 entry_service = services[entry_point_function_index]
                 # Check if the benchmark has already been deployed. If so, ignore it.
-                print("[INFO] Current benchmark statuses:")
-                # Sort current benchmark statuses
-                pprint({k: v for k, v in sorted(dc.current_benchmarks.items(), key=lambda item: item[1], reverse=True)})
+                # print("[INFO] Current benchmark statuses:")
+                # # Sort current benchmark statuses
+                # pprint({k: v for k, v in sorted(dc.current_benchmarks.items(), key=lambda item: item[1], reverse=True)})
                 if dc.benchmark_already_deployed(benchmark_name):
-                    print(f"[INFO] Dropped proposed benchmark `{benchmark_name}` because it is already running.")
+                    if verbose:
+                        print(f"[INFO] Dropped proposed benchmark `{benchmark_name}` because it is already running.")
                     continue
                 
                 # If benchmark can be deployed, create and start process for multiprocessing.
                 p = Process(target=dc.run_service, args=(env, benchmark_name, deployments, services, entry_service, rps, duration))
                 dc.current_benchmarks[benchmark_name] = 1
-                print(f"[INFO] Process for benchmark `{benchmark_name}` created.\n")
+                if verbose:
+                    print(f"[INFO] Process for benchmark `{benchmark_name}` created.\n")
                 p.start()
                 processes.append(p)
-            time.sleep(args.r)
+            time.sleep(int(args.r))
 
         # Once all processes have finished, they can be joined.
         for p in processes:
@@ -189,8 +201,10 @@ if __name__ == "__main__":
     # Config file for benchmarks
     parser.add_argument('--config')
     # Total time to run (seconds)
-    parser.add_argument('--t')
+    parser.add_argument('-t')
     # Rate at which to generate workloads (seconds)
-    parser.add_argument('--r')
+    parser.add_argument('-r')
+    # Verbosity: 't' for verbose, 'f' for non-verbose
+    parser.add_argument('-v')
     args = parser.parse_args()
     main(args)

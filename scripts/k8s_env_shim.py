@@ -19,7 +19,7 @@ def timeout_handler(signum, frame):
     raise Exception("[ERROR] timeout limit exceeded.\n")
 
 class Env:
-    def __init__(self):
+    def __init__(self, verbose=False):
         # Configs can be set in Configuration class directly or using helper
         # utility. If no argument provided, the config will be loaded from
         # default location.
@@ -30,6 +30,9 @@ class Env:
 
         # Initialize vars
         self.api = client.AppsV1Api()
+
+        # Verbosity
+        self.verbose = verbose
 
         # Some extra vars for later use
         self.total_mem_ = None
@@ -79,19 +82,22 @@ class Env:
                 return 0
             try:
                 if wait_to_scale:
-                    print(f"[RUNNING] Waiting for all pods in Deployment to be ready")
+                    if self.verbose:
+                        print(f"[RUNNING] Waiting for all pods in Deployment to be ready")
                     t_start = time.time()
                     while not deployment.is_ready():
                         continue
                     # Cancel the timer when the Deployment is ready
-                    signal.alarm(0)                
-                    print(f"[UPDATE] Deployment {deployment.deployment_name} successfully rolled out in {round(time.time() - t_start, 3)} seconds.\n")
+                    signal.alarm(0)   
+                    if self.verbose:             
+                        print(f"[UPDATE] Deployment {deployment.deployment_name} successfully rolled out in {round(time.time() - t_start, 3)} seconds.\n")
             except:
                 assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
             
             # Create Service
             service.create_service()
-            print(f"[INFO] Service can be invoked at IP: {service.get_service_ip()} at port {service.port}\n")
+            if self.verbose:
+                print(f"[INFO] Service can be invoked at IP: {service.get_service_ip()} at port {service.port}\n")
 
         return 1
     
@@ -105,13 +111,15 @@ class Env:
             deployment.scale_deployment(replicas)
             try:
                 if wait_to_scale:
-                    print(f"[RUNNING] Waiting for all replicas to scale")
+                    if self.verbose:
+                        print(f"[RUNNING] Waiting for all replicas to scale")
                     t_start = time.time()
                     while not deployment.is_ready():
                         continue
                     # Cancel the timer when the replicas are ready
-                    signal.alarm(0)                
-                    print(f"[UPDATE] Deployment {deployment.deployment_name} successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
+                    signal.alarm(0)      
+                    if self.verbose:          
+                        print(f"[UPDATE] Deployment {deployment.deployment_name} successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
             except:
                 assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
 
@@ -130,7 +138,8 @@ class Env:
 
         # Setup hostname file
         os.system('''echo '[ { "hostname": "''' + ip + '''" } ]' > ''' + INVOKER_FILE + '''endpoints.json''')
-        print(f"[INFO] Hostname file has been set up at {INVOKER_FILE}/endpoints.json")
+        if self.verbose:
+            print(f"[INFO] Hostname file has been set up at {INVOKER_FILE}/endpoints.json")
 
         # Format the invoker command nicely
         invoker_cmd_join_list = [f'{INVOKER_FILE}/invoker',
@@ -142,7 +151,8 @@ class Env:
         invoker_cmd = ' '.join(invoker_cmd_join_list)
 
         # Run invoker while redirecting output to separate file
-        print("[RUNNING] Invoking with command at second {}".format(time.time()), f'`{invoker_cmd}`\n')
+        if self.verbose:
+            print("[RUNNING] Invoking with command at second {}".format(time.time()), f'`{invoker_cmd}`\n')
         
         self.invoker_start_time = time.time()
         stdout = os.popen(invoker_cmd)
