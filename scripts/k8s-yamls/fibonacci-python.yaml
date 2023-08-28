@@ -30,11 +30,25 @@ spec:
             - --generator=linear
             - --lowerBound=1
             - --upperBound=10
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "128Mi"
         - name: fibonacci-python
           image: docker.io/vhiveease/fibonacci-python:latest
           args:
             - --addr=0.0.0.0
             - --port=50051
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "128Mi"
 ---
 apiVersion: v1
 kind: Service

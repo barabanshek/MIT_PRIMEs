@@ -20,6 +20,13 @@ spec:
           image: docker.io/vhiveease/video-analytics-streaming:latest
           imagePullPolicy: Always
           args: ["-addr", "decoder.default.svc.cluster.local"]
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "128Mi"
           env:
             - name: TRANSFER_TYPE
               value: "INLINE"

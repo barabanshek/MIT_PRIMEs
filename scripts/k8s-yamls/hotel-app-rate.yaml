@@ -28,6 +28,13 @@ spec:
             - --function-endpoint-port=8083
             - --function-name=rate
             - --value=1
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "128Mi"
 
         # Function ------------
         - name: function
@@ -37,6 +44,13 @@ spec:
             - --port=8083
             - --db_addr=hotel-app-database:27017
             - --memcached_addr=hotel-app-mmc:11211
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "128Mi"
 ---
 apiVersion: v1
 kind: Service

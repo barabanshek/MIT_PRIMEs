@@ -28,6 +28,13 @@ spec:
             - --function-endpoint-port=8083
             - --function-name=recommendation
             - --value="dis"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "128Mi"
 
         # Function ------------
         - name: function
@@ -36,6 +43,13 @@ spec:
             - --url=0.0.0.0
             - --port=8083
             - --db_addr=hotel-app-database:27017
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "128Mi"
 ---
 apiVersion: v1
 kind: Service
