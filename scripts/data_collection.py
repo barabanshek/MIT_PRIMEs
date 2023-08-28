@@ -127,7 +127,7 @@ class DataCollect:
             self.print_env_state(env_state)
 
         # Delete when finished.   
-        env.delete_functions(services)
+        # env.delete_functions(services)
         self.current_benchmarks[benchmark_name] = 0
         # Update data table.
         with self.lock:
@@ -150,7 +150,7 @@ def main(args):
         current_benchmarks = manager.dict()
 
         # Verbosity
-        verbose = args.v == 't'
+        verbose = args.v
 
         # Instantiate Env.
         env = Env(verbose=verbose)
@@ -218,7 +218,7 @@ def main(args):
                     print(f"[INFO] Process for benchmark `{benchmark_name}` created.\n")
                 p.start()
                 processes.append(p)
-            time.sleep(int(args.r))
+            time.sleep(int(args.d))
 
         # Once all processes have finished, they can be joined.
         for p in processes:
@@ -234,10 +234,11 @@ if __name__ == "__main__":
     # Config file for benchmarks
     parser.add_argument('--config')
     # Total time to run (seconds)
-    parser.add_argument('-t')
-    # Rate at which to generate workloads (seconds)
-    parser.add_argument('-r')
+    parser.add_argument('-t', help='Total time to run (seconds)')
+    # Interval between each workload generation (seconds)
+    parser.add_argument('-d', help='Interval between each workload generation (seconds)')
     # Verbosity: 't' for verbose, 'f' for non-verbose
-    parser.add_argument('-v')
+    parser.add_argument('-v', action='store_true', help= 'Verbosity: -v for verbose, leave empty for non-verbose')
+    #TODO: add -h argument
     args = parser.parse_args()
     main(args)
