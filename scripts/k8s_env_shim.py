@@ -147,6 +147,7 @@ class Env:
                                 f'-port {service.port}',
                                 f'-time {duration}',
                                 f'-rps {rps}',
+                                f'-latf {service.name}.csv',
                                 f'-endpointsFile {INVOKER_FILE}/endpoints.json']
         invoker_cmd = ' '.join(invoker_cmd_join_list)
 
