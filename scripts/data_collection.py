@@ -142,6 +142,13 @@ class DataCollect:
                               cpu_idle, cpu_user, cpu_system,
                               mem_free,
                               net_transmit, net_receive])
+            
+    def cleanup(self):
+        run('''kubectl delete deployment --all''', shell=True)
+        run('''kubectl delete service --all''', shell=True)
+        run('''kubectl delete hpa --all''', shell=True)
+        run('''kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/database.yaml''', shell=True)
+        run('''kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/memcached.yaml''', shell=True)
 
 def main(args):
     with Manager() as manager:
@@ -192,7 +199,7 @@ def main(args):
                     file_name = f"k8s-yamls/{function}.yaml"
                     # Instantiate Service objects
                     with open(path.join(path.dirname(__file__), file_name)) as f:
-                        dep, svc = yaml.load_all(f, Loader=SafeLoader)
+                        dep, svc, hpa = yaml.load_all(f, Loader=SafeLoader)
                     port = svc['spec']['ports'][0]['port']
                     service = Service(function, file_name, port)
                     services.append(service)
@@ -221,13 +228,20 @@ def main(args):
             time.sleep(int(args.d))
 
         # Once all processes have finished, they can be joined.
+        print("Time up, terminating all processes.")
         for p in processes:
+            p.terminate()
             p.join()
         
         # Dump data in pickle file.
         with open('data.pickle', 'wb') as handle:
             pickle.dump(list(dc.data), handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print("Data successfully dumped.")
+
     print("[INFO] Done!")
+    print("[INFO] Cleaning up...")
+    dc.cleanup()
+    print("[INFO] Cleanup complete.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
