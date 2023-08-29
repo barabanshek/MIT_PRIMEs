@@ -23,10 +23,10 @@ spec:
           resources:
             requests:
               cpu: "250m"
-              memory: "64Mi"
+              memory: "1024Mi"
             limits:
-              cpu: "500m"
-              memory: "128Mi"
+              cpu: "200000m"
+              memory: "12800Mi"
           env:
             - name: TRANSFER_TYPE
               value: "INLINE"
@@ -49,3 +49,22 @@ spec:
   ports:
   - port: 80
     targetPort: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: streaming-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: streaming
+  minReplicas: 1
+  maxReplicas: 1000
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80

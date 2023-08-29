@@ -30,10 +30,10 @@ spec:
           resources:
             requests:
               cpu: "250m"
-              memory: "64Mi"
+              memory: "1024Mi"
             limits:
-              cpu: "500m"
-              memory: "128Mi"
+              cpu: "200000m"
+              memory: "12800Mi"
 
         # Function ------------
         - name: function
@@ -45,10 +45,10 @@ spec:
           resources:
             requests:
               cpu: "250m"
-              memory: "64Mi"
+              memory: "1024Mi"
             limits:
-              cpu: "500m"
-              memory: "128Mi"
+              cpu: "200000m"
+              memory: "12800Mi"
 ---
 apiVersion: v1
 kind: Service
@@ -62,3 +62,22 @@ spec:
   ports:
   - port: 50000
     targetPort: 50000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hotel-app-geo-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hotel-app-geo
+  minReplicas: 1
+  maxReplicas: 1000
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
