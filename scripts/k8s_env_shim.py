@@ -77,7 +77,7 @@ class Env:
             try:
                 deployment.create_deployment()
             except Exception as e:
-                print('\n[ERROR] Previous Deployments may still be deleting...')
+                # print('\n[ERROR] Previous Deployments may still be deleting...')
                 print(f'\n[ERROR] {e}')
                 return 0
             try:
@@ -124,9 +124,14 @@ class Env:
                 assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
 
     # Delete functions when finished
-    def delete_functions(self, services):
-        for service in services:
-            service.delete_service()
+    def delete_functions(self, services, deployments_only=False, deployments=None, wait_time=2):
+        if not deployments_only:
+            for service in services:
+                service.delete_service()
+        else:
+            for deployment in deployments:
+                deployment.delete_deployment()
+        time.sleep(wait_time)
 
     # Get number of worker nodes
     def get_worker_num(self):
@@ -182,6 +187,7 @@ class Env:
         if stat_lat_filename == None:
             assert False, "[ERROR] stat_lat_filename was not found."
         else:
+            timestamp = time.time()
             return (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename
 
     # Get latencies given the stat file

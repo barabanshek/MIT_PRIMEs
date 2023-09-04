@@ -6,6 +6,7 @@ import random
 import pandas as pd
 import pickle
 import numpy as np
+import string
 
 from multiprocessing import Process, Array, Lock, Manager
 from subprocess import run
@@ -17,6 +18,18 @@ from itertools import chain, combinations
 from setup_service import Service
 from setup_deployment import Deployment
 
+# Take Deployment, Service, and HPA dicts and reassign the names.
+def rename_yaml(dep, hpa, new_name):
+    # Update Deployment name.
+    dep['metadata']['name'] = new_name
+    for i in range(len(dep['spec']['template']['spec']['containers'])):
+        if dep['spec']['template']['spec']['containers'][i]['name'] != 'relay':
+            dep['spec']['template']['spec']['containers'][i]['name'] = new_name
+    # Update HPA name.
+    hpa['metadata']['name'] = new_name
+    hpa['spec']['scaleTargetRef']['name'] = new_name
+
+    return dep, hpa
 
 class DataCollect:
 
@@ -77,20 +90,61 @@ class DataCollect:
         if ret.returncode != 0:
             assert False, f"\n[ERROR] Failed to run command `{set_scale_cmd}`\n[ERROR] Error message: {ret.stderr}"
 
+    # Get the percent utilizations.
+    # [mem, cpu]
+    def get_resource_metrics(self, name):
+        metrics = []
+        for i in range(2):
+            get_resource_metrics_cmd = f"kubectl get hpa/{name}-hpa -o jsonpath='{{.status.currentMetrics[{i}].resource.current.averageUtilization}}'"
+            try:
+                ret = int(run(get_resource_metrics_cmd, shell=True, capture_output=True, universal_newlines=True).stdout)
+                metrics.append(ret)
+            except Exception as e:
+                print(f"[ERROR] Benchmark: {name}")
+                print(e)
+        return metrics
+
+
     # Setup the benchmark, invoke, print stats, and delete service.
     # This function will be multithreaded to run several benchmarks concurrently.
-    def run_service(self, env, benchmark_name, deployments, services, entry_service, rps, duration):
+    def run_service(self, env, benchmark_name, deployments, services, entry_service, rps, duration, max_retries=5, num_metrics=2):
         # Check if the benchmark already exists. If not, deploy. If so, skip deployment.
         # Check if benchmark setup is successful. If not, attempt to delete existing deployments.
         # TODO: deploy only the services that the benchmark is missing. For example, if streaming and decoder are ready, deploy recog only.
         if not env.setup_functions(deployments, services):
-            self.current_benchmarks[benchmark_name] = 0
             env.delete_functions(services)
+            self.current_benchmarks[benchmark_name] = 0
             print(f"[ERROR] Benchmark `{benchmark_name}` setup failed, please read error message and try again.")
             return 0
         # Invoke.
         (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
             env.invoke_service(entry_service, duration, rps)
+        # Get timestamp.
+        timestamp = time.time()
+        # Get scales and resource utils.
+        replicas = []
+        cpu_utilizations = []
+        mem_utilizations = []
+        for service in services:
+            get_replicas_cmd = f"kubectl get deployment/{service.name} -o jsonpath='{{.spec.replicas}}'"
+            replicas.append(int(run(get_replicas_cmd, shell=True, capture_output=True, universal_newlines=True).stdout))
+            metrics_success = False
+            # Try getting metrics multiple times
+            for i in range(max_retries+1):
+                metrics = self.get_resource_metrics(service.name)
+                if len(metrics) == num_metrics:
+                    metrics_success = True
+                    print(f"[INFO] Metrics successfully collected for benchmark `{benchmark_name}.`")
+                    break
+                print(f"[ERROR] Not enough metrics were returned for benchmark `{benchmark_name}.`")
+                print(f"[INFO] Retrying... ({i+1}/{max_retries})")
+            # Check if metrics were acquired.
+            if not metrics_success:
+                print(f"[ERROR] Failed to return metrics for benchmark `{benchmark_name}.`")
+                return 
+            mem_utilizations.append(metrics[0])
+            cpu_utilizations.append(metrics[1])
+        # Get latencies.
         lat_stat = env.get_latencies(stat_lat_filename)
         if lat_stat == []:
             print(f"[ERROR] No responses were returned for benchmark `{benchmark_name}`, so no latency statistics have been computed.")
@@ -117,6 +171,8 @@ class DataCollect:
 
         if self.verbose:
             print(f"[INFO] Invocation statistics for benchmark `{benchmark_name}`:\n")
+            print('    time: ', timestamp)
+            print('    replicas: ', replicas)
             print(
                 f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
             print('    50th: ', lat_50/1000, 'ms')
@@ -126,12 +182,15 @@ class DataCollect:
             print('    env_state:')
             self.print_env_state(env_state)
 
-        # Delete when finished.   
-        # env.delete_functions(services)
+        # Delete Deployments when finished.   
+        # env.delete_functions(services, deployments_only=True, deployments=deployments)
         self.current_benchmarks[benchmark_name] = 0
         # Update data table.
         with self.lock:
-            self.data.append([benchmark_name, 
+            self.data.append([timestamp, benchmark_name[:-11], 
+                              cpu_utilizations,
+                              mem_utilizations,
+                              replicas,
                               rps, 
                               duration, 
                               stat_issued, 
@@ -192,16 +251,40 @@ def main(args):
                 entry_point_function = benchmark['entry-point']
                 entry_point_function_index = functions.index(entry_point_function)
 
+                # TODO: separate "official" YAMLS from the copies we make when running.
                 # Instantiate Services and Deployments
                 services = []
                 deployments = []
+                is_already_deployed = dc.benchmark_already_deployed(benchmark_name)
+                if is_already_deployed:
+                    # Assign this benchmark a random id to avoid conflicts
+                    rand_id = ''.join(random.choices(string.ascii_lowercase, k=10))
+                    benchmark_name += '-' + rand_id
+                    for i in range(len(functions)):
+                        # Read YAML of original function to get dicts.
+                        file_name = f"k8s-yamls/{functions[i]}.yaml"
+                        with open(path.join(path.dirname(__file__), file_name)) as f:
+                            dep, svc, hpa = yaml.load_all(f, Loader=SafeLoader)
+                        # Update function name to include new id.
+                        functions[i] += '-' + rand_id
+                        # Update the old dict to include new id.
+                        new_dep, new_hpa = rename_yaml(dep, hpa, functions[i])
+                        # List of manifests as dicts to be converted into new YAML file.
+                        manifests = [new_dep, svc, new_hpa]
+                        # Dump manifests into new YAML file.
+                        with open(f"k8s-yamls/{functions[i]}.yaml", 'x') as f:
+                            yaml.dump_all(manifests, f)
+                # Deploy functions.
                 for function in functions:
                     file_name = f"k8s-yamls/{function}.yaml"
                     # Instantiate Service objects
                     with open(path.join(path.dirname(__file__), file_name)) as f:
                         dep, svc, hpa = yaml.load_all(f, Loader=SafeLoader)
                     port = svc['spec']['ports'][0]['port']
-                    service = Service(function, file_name, port)
+                    if is_already_deployed:
+                        service = Service(function[:-11], file_name, port)
+                    else:
+                        service = Service(function, file_name, port)
                     services.append(service)
 
                     # Instantiate Deployment objects
@@ -209,14 +292,14 @@ def main(args):
                     deployments.append(deployment)
 
                 entry_service = services[entry_point_function_index]
-                # Check if the benchmark has already been deployed. If so, ignore it.
-                # print("[INFO] Current benchmark statuses:")
-                # # Sort current benchmark statuses
-                # pprint({k: v for k, v in sorted(dc.current_benchmarks.items(), key=lambda item: item[1], reverse=True)})
-                if dc.benchmark_already_deployed(benchmark_name):
-                    if verbose:
-                        print(f"[INFO] Dropped proposed benchmark `{benchmark_name}` because it is already running.")
-                    continue
+                # Check if the benchmark has already been deployed. If so, make a copy with a new ID.
+                print("[INFO] Current benchmark statuses:")
+                # Sort current benchmark statuses
+                pprint({k: v for k, v in sorted(dc.current_benchmarks.items(), key=lambda item: item[1], reverse=True)})
+                # if dc.benchmark_already_deployed(benchmark_name):
+                #     if verbose:
+                #         print(f"[INFO] Dropped proposed benchmark `{benchmark_name}` because it is already running.")
+                #     continue
                 
                 # If benchmark can be deployed, create and start process for multiprocessing.
                 p = Process(target=dc.run_service, args=(env, benchmark_name, deployments, services, entry_service, rps, duration))
@@ -234,12 +317,14 @@ def main(args):
             p.join()
         
         # Dump data in pickle file.
-        with open('data.pickle', 'wb') as handle:
+        rand_string = ''.join(random.choices(string.ascii_lowercase, k=10))
+        with open(f'data_{rand_string}.pickle', 'wb') as handle:
             pickle.dump(list(dc.data), handle, protocol=pickle.HIGHEST_PROTOCOL)
         print("Data successfully dumped.")
 
     print("[INFO] Done!")
     print("[INFO] Cleaning up...")
+    #TODO: give non-cleanup option
     dc.cleanup()
     print("[INFO] Cleanup complete.")
 

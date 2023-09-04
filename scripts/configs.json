@@ -1,16 +1,5 @@
 {"benchmarks" : [
     {
-        "name" : "video-analytics",
-        "entry-point" : "streaming",
-        "functions" : ["streaming", "decoder", "recog"],
-        "invoker-configs" : {
-            "duration-min" : 30,
-            "duration-max" : 120,
-            "rps-min" : 1,
-            "rps-max" : 20
-            }
-    },
-    {
         "name" : "fibonacci-python",
         "entry-point" : "fibonacci-python",
         "functions" : ["fibonacci-python"],
@@ -22,42 +11,9 @@
             }
     },
     {
-        "name" : "hotel-app-geo",
-        "entry-point" : "hotel-app-geo",
-        "functions" : ["hotel-app-geo"],
-        "invoker-configs" : {
-            "duration-min" : 30,
-            "duration-max" : 120,
-            "rps-min" : 100,
-            "rps-max" : 400
-            }
-    },
-    {
-        "name" : "hotel-app-profile",
-        "entry-point" : "hotel-app-profile",
-        "functions" : ["hotel-app-profile"],
-        "invoker-configs" : {
-            "duration-min" : 30,
-            "duration-max" : 120,
-            "rps-min" : 100,
-            "rps-max" : 400
-            }
-    },
-    {
-        "name" : "hotel-app-rate",
-        "entry-point" : "hotel-app-rate",
-        "functions" : ["hotel-app-rate"],
-        "invoker-configs" : {
-            "duration-min" : 30,
-            "duration-max" : 120,
-            "rps-min" : 100,
-            "rps-max" : 400
-            }
-    },
-    {
-        "name" : "hotel-app-user",
-        "entry-point" : "hotel-app-user",
-        "functions" : ["hotel-app-user"],
+        "name" : "fibonacci-python-2",
+        "entry-point" : "fibonacci-python-2",
+        "functions" : ["fibonacci-python-2"],
         "invoker-configs" : {
             "duration-min" : 30,
             "duration-max" : 120,

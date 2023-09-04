@@ -10,7 +10,11 @@ def main():
         data = pickle.load(handle)
     df = pd.DataFrame(data)
     pd.set_option('display.max_columns', None)
-    df.columns = ['Benchmark', 
+    df.columns = ['Timestamp',
+                  'Benchmark', 
+                  'Average CPU (%)',
+                  'Average Mem (%)',
+                  'Replicas',
                   'RPS', 
                   'Duration (s)', 
                   'Requests Issued', 
@@ -22,7 +26,6 @@ def main():
                               'avg_mem_free',
                               'avg_net_transmit (bps)', 'avg_net_receive (bps)']
     print(df)
-    print(df['avg_cpu_user'])
     return df
 
 if __name__ == "__main__":

@@ -1,22 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hotel-app-rate
+  name: fibonacci-python-2
   namespace: default
   labels:
-    app: hotel-app-rate
+    app: fibonacci-python-2
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: hotel-app-rate
+      app: fibonacci-python-2
   template:
     metadata:
       labels:
-        app: hotel-app-rate
+        app: fibonacci-python-2
     spec:
       containers:
-        # Relay --------------
         - name: relay
           image: docker.io/vhiveease/relay:latest
           ports:
@@ -25,9 +24,12 @@ spec:
           args:
             - --addr=0.0.0.0:50000
             - --function-endpoint-url=0.0.0.0
-            - --function-endpoint-port=8083
-            - --function-name=rate
-            - --value=1
+            - --function-endpoint-port=50051
+            - --function-name=fibonacci-python
+            - --value=10
+            - --generator=linear
+            - --lowerBound=1
+            - --upperBound=10
           resources:
             requests:
               cpu: "250m"
@@ -35,15 +37,11 @@ spec:
             limits:
               cpu: "200000m"
               memory: "12800Mi"
-
-        # Function ------------
-        - name: function
-          image: docker.io/vhiveease/hotel-app-rate:latest
+        - name: fibonacci-python-2
+          image: docker.io/vhiveease/fibonacci-python:latest
           args:
-            - --url=0.0.0.0
-            - --port=8083
-            - --db_addr=hotel-app-database:27017
-            - --memcached_addr=hotel-app-mmc:11211
+            - --addr=0.0.0.0
+            - --port=50051
           resources:
             requests:
               cpu: "250m"
@@ -55,12 +53,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: hotel-app-rate
+  name: fibonacci-python-2
   namespace: default
 spec:
   type: ClusterIP
   selector:
-    app: hotel-app-rate
+    app: fibonacci-python-2
   ports:
   - port: 50000
     targetPort: 50000
@@ -68,12 +66,12 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: hotel-app-rate-hpa
+  name: fibonacci-python-2-hpa
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: hotel-app-rate
+    name: fibonacci-python-2
   minReplicas: 1
   maxReplicas: 1000
   metrics:
