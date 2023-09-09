@@ -82,6 +82,16 @@ kInstallCmd_MasterSetupvSwarm = '''
     kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/database.yaml
     kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/memcached.yaml
 '''
+kInstallCmd_MetricsAPI = '''
+    kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+    wget https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.5.0/components.yaml
+    kubectl delete -f components.yaml  
+
+    sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq &&\
+    sudo chmod +x /usr/bin/yq
+    yq e -i 'select(.kind == "Deployment").spec.template.spec.containers[0].args[5] = "--kubelet-insecure-tls"' ./components.yaml
+    kubectl apply -f components.yaml
+'''
 
 kInstallCmd_Prometheus = '''
     wget https://github.com/prometheus/node_exporter/releases/download/v1.5.0/node_exporter-1.5.0.linux-amd64.tar.gz
@@ -303,7 +313,15 @@ class ServerlessDeployer:
 
         print("All nodes are set, but please check the logs and also execute `watch kubectl get nodes`"
               "and `watch kubectl get pods --all-namespaces` on the master node to see if things are OK")
-
+        
+        print("Installing MetricsAPI...")
+        _, stdout, stderr = self.ssh_clients_master_.exec_command(
+            kInstallCmd_MetricsAPI)
+        exit_status = stdout.channel.recv_exit_status()
+        if exit_status == 0:
+            print("MetricsAPI is installed!")
+        else:
+            print("Error when installing MetricsAPI, try to do it manually")
 
 #
 # Example cmd:
