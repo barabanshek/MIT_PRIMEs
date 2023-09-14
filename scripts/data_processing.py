@@ -4,10 +4,11 @@ import pickle
 
 from pprint import pprint
 
-def main():
-    data_file = 'data.pickle'
+def main(args):
+    data_file = args.f
     with open(data_file, 'rb') as handle:
         data = pickle.load(handle)
+    pprint(data)
     df = pd.DataFrame(data)
     pd.set_option('display.max_columns', None)
     df.columns = ['Timestamp',
@@ -26,7 +27,11 @@ def main():
                               'avg_mem_free',
                               'avg_net_transmit (bps)', 'avg_net_receive (bps)']
     print(df)
+    df.to_csv("data.csv", columns=df.columns)
     return df
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--f')
+    args = parser.parse_args()
+    main(args)
