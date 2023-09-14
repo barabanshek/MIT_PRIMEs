@@ -8,8 +8,11 @@ def main(args):
     data_file = args.f
     with open(data_file, 'rb') as handle:
         data = pickle.load(handle)
-    pprint(data)
-    df = pd.DataFrame(data)
+    with open('successes.pickle', 'rb') as handle:
+        successes = pickle.load(handle)
+        print(f'Benchmarks: {len(successes)}')
+        print(f'Successes: {sum(successes)}')
+        df = pd.DataFrame(data)
     pd.set_option('display.max_columns', None)
     df.columns = ['Timestamp',
                   'Benchmark', 

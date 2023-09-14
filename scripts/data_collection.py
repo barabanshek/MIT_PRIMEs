@@ -59,11 +59,12 @@ def delete_files_in_directory(directory_path):
 
 class DataCollect:
 
-    def __init__(self, data, current_benchmarks, verbose=False):
+    def __init__(self, data, current_benchmarks, success_count, verbose=False):
         self.data = data
         self.current_benchmarks = current_benchmarks
         self.lock = Lock()
         self.verbose = verbose
+        self.success_count = success_count
 
     # Check if the services for a benchmark have already been deployed.
     def benchmark_already_deployed(self, benchmark_name):
@@ -140,6 +141,7 @@ class DataCollect:
             env.delete_functions(services)
             self.current_benchmarks[benchmark_name] = 0
             print(f"[ERROR] Benchmark `{benchmark_name}` setup failed, please read error message and try again.")
+            self.success_count.append(0)
             return 0
         # Invoke.
         (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
@@ -167,6 +169,9 @@ class DataCollect:
             # Check if metrics were acquired.
             if not metrics_success:
                 print(f"[ERROR] Failed to return metrics for benchmark `{benchmark_name}.`")
+                env.delete_functions(services)
+                self.current_benchmarks[benchmark_name] = 0
+                self.success_count.append(0)
                 return 
             mem_utilizations.append(metrics[0])
             cpu_utilizations.append(metrics[1])
@@ -174,6 +179,9 @@ class DataCollect:
         lat_stat = env.get_latencies(stat_lat_filename)
         if lat_stat == []:
             print(f"[ERROR] No responses were returned for benchmark `{benchmark_name}`, so no latency statistics have been computed.")
+            env.delete_functions(services)
+            self.current_benchmarks[benchmark_name] = 0
+            self.success_count.append(0)
             return
         
         # Sample env.
@@ -208,7 +216,8 @@ class DataCollect:
             print('    env_state:')
             self.print_env_state(env_state)
 
-        # Delete Deployments when finished.   
+        # Delete Deployments when finished. 
+        self.success_count.append(1)  
         env.delete_functions(services)
         self.current_benchmarks[benchmark_name] = 0
         # Update data table.
@@ -241,6 +250,7 @@ def main(args):
         # Initialize shared variables
         data = manager.list()
         current_benchmarks = manager.dict()
+        success_count = manager.list()
 
         # Verbosity
         verbose = args.v
@@ -249,7 +259,7 @@ def main(args):
         env = Env(verbose=verbose)
 
         # Instantiate DataCollect.
-        dc = DataCollect(data, current_benchmarks, verbose=verbose)
+        dc = DataCollect(data, current_benchmarks, success_count, verbose=verbose)
 
         # Setup Prometheus and check if setup is successful.
         if not env.setup_prometheus():
@@ -342,6 +352,8 @@ def main(args):
         with open(data_filename, 'wb') as handle:
             pickle.dump(list(dc.data), handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Data is saved in {data_filename}.")
+        with open('successes.pickle', 'wb') as handle:
+            pickle.dump(list(dc.success_count), handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     print("[INFO] Done!")
     print("[INFO] Cleaning up...")
