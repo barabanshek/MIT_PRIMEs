@@ -93,12 +93,10 @@ class Env:
                         print(f"[UPDATE] Deployment {deployment.deployment_name} successfully rolled out in {round(time.time() - t_start, 3)} seconds.\n")
             except:
                 assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
-            
             # Create Service
             service.create_service()
             if self.verbose:
                 print(f"[INFO] Service can be invoked at IP: {service.get_service_ip()} at port {service.port}\n")
-
         return 1
     
     # Scale number of replicas
