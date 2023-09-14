@@ -90,6 +90,7 @@ kInstallCmd_MetricsAPI = '''
     sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq &&\
     sudo chmod +x /usr/bin/yq
     yq e -i 'select(.kind == "Deployment").spec.template.spec.containers[0].args[5] = "--kubelet-insecure-tls"' ./components.yaml
+    yq e -i 'select(.kind == "Deployment").spec.template.spec.containers[0].args[6] = "--kubelet-preferred-address-types=InternalIP,ExternalIP"' ./components.yaml
     kubectl apply -f components.yaml
 '''
 
