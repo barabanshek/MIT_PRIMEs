@@ -7,6 +7,7 @@ import pandas as pd
 import pickle
 import numpy as np
 import string
+import os
 
 from multiprocessing import Process, Array, Lock, Manager
 from subprocess import run
@@ -18,18 +19,43 @@ from itertools import chain, combinations
 from setup_service import Service
 from setup_deployment import Deployment
 
+
 # Take Deployment, Service, and HPA dicts and reassign the names.
-def rename_yaml(dep, hpa, new_name):
+def rename_yaml(dep, svc, hpa, new_name):
     # Update Deployment name.
     dep['metadata']['name'] = new_name
+    dep['metadata']['labels']['app'] = new_name
+    dep['spec']['selector']['matchLabels']['app'] = new_name
+    dep['spec']['template']['metadata']['labels']['app'] = new_name
     for i in range(len(dep['spec']['template']['spec']['containers'])):
         if dep['spec']['template']['spec']['containers'][i]['name'] != 'relay':
             dep['spec']['template']['spec']['containers'][i]['name'] = new_name
+    # Update chaining.
+    if "-addr" in dep['spec']['template']['spec']['containers'][i]['args']:
+        address = dep['spec']['template']['spec']['containers'][i]['args'][1]
+        ind = address.index('.')
+        address = address[:ind] + new_name[-11:] + address[ind:]
+        dep['spec']['template']['spec']['containers'][i]['args'][1] = address
+    # Update Service name.
+    svc['metadata']['name'] = new_name
+    svc['spec']['selector']['app'] = new_name
+
     # Update HPA name.
-    hpa['metadata']['name'] = new_name
+    hpa['metadata']['name'] = new_name + '-hpa'
     hpa['spec']['scaleTargetRef']['name'] = new_name
 
-    return dep, hpa
+    return dep, svc, hpa
+
+def delete_files_in_directory(directory_path):
+   try:
+     files = os.listdir(directory_path)
+     for file in files:
+       file_path = os.path.join(directory_path, file)
+       if os.path.isfile(file_path):
+         os.remove(file_path)
+     print("All files deleted successfully.")
+   except OSError:
+     print("Error occurred while deleting files.")
 
 class DataCollect:
 
@@ -104,10 +130,9 @@ class DataCollect:
                 print(e)
         return metrics
 
-
     # Setup the benchmark, invoke, print stats, and delete service.
     # This function will be multithreaded to run several benchmarks concurrently.
-    def run_service(self, env, benchmark_name, deployments, services, entry_service, rps, duration, max_retries=5, num_metrics=2):
+    def run_service(self, env, benchmark_name, deployments, services, entry_service, rps, duration, max_retries=5, delay_time=2, num_metrics=2):
         # Check if the benchmark already exists. If not, deploy. If so, skip deployment.
         # Check if benchmark setup is successful. If not, attempt to delete existing deployments.
         # TODO: deploy only the services that the benchmark is missing. For example, if streaming and decoder are ready, deploy recog only.
@@ -130,7 +155,7 @@ class DataCollect:
             replicas.append(int(run(get_replicas_cmd, shell=True, capture_output=True, universal_newlines=True).stdout))
             metrics_success = False
             # Try getting metrics multiple times
-            for i in range(max_retries+1):
+            for i in range(max_retries):
                 metrics = self.get_resource_metrics(service.name)
                 if len(metrics) == num_metrics:
                     metrics_success = True
@@ -138,6 +163,7 @@ class DataCollect:
                     break
                 print(f"[ERROR] Not enough metrics were returned for benchmark `{benchmark_name}.`")
                 print(f"[INFO] Retrying... ({i+1}/{max_retries})")
+                time.sleep(delay_time)
             # Check if metrics were acquired.
             if not metrics_success:
                 print(f"[ERROR] Failed to return metrics for benchmark `{benchmark_name}.`")
@@ -183,7 +209,7 @@ class DataCollect:
             self.print_env_state(env_state)
 
         # Delete Deployments when finished.   
-        # env.delete_functions(services, deployments_only=True, deployments=deployments)
+        env.delete_functions(services)
         self.current_benchmarks[benchmark_name] = 0
         # Update data table.
         with self.lock:
@@ -208,6 +234,7 @@ class DataCollect:
         run('''kubectl delete hpa --all''', shell=True)
         run('''kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/database.yaml''', shell=True)
         run('''kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/memcached.yaml''', shell=True)
+        delete_files_in_directory('./k8s-yamls/tmp/')
 
 def main(args):
     with Manager() as manager:
@@ -255,40 +282,33 @@ def main(args):
                 # Instantiate Services and Deployments
                 services = []
                 deployments = []
-                is_already_deployed = dc.benchmark_already_deployed(benchmark_name)
-                if is_already_deployed:
-                    # Assign this benchmark a random id to avoid conflicts
-                    rand_id = ''.join(random.choices(string.ascii_lowercase, k=10))
-                    benchmark_name += '-' + rand_id
-                    for i in range(len(functions)):
-                        # Read YAML of original function to get dicts.
-                        file_name = f"k8s-yamls/{functions[i]}.yaml"
-                        with open(path.join(path.dirname(__file__), file_name)) as f:
-                            dep, svc, hpa = yaml.load_all(f, Loader=SafeLoader)
-                        # Update function name to include new id.
-                        functions[i] += '-' + rand_id
-                        # Update the old dict to include new id.
-                        new_dep, new_hpa = rename_yaml(dep, hpa, functions[i])
-                        # List of manifests as dicts to be converted into new YAML file.
-                        manifests = [new_dep, svc, new_hpa]
-                        # Dump manifests into new YAML file.
-                        with open(f"k8s-yamls/{functions[i]}.yaml", 'x') as f:
-                            yaml.dump_all(manifests, f)
-                # Deploy functions.
-                for function in functions:
-                    file_name = f"k8s-yamls/{function}.yaml"
-                    # Instantiate Service objects
+                # is_already_deployed = dc.benchmark_already_deployed(benchmark_name)
+                # Assign this benchmark a random id to avoid conflicts
+                # if is_already_deployed:
+                rand_id = ''.join(random.choices(string.ascii_lowercase, k=10))
+                benchmark_name += '-' + rand_id
+                for i in range(len(functions)):
+                    # Read YAML of original function to get dicts.
+                    file_name = f"k8s-yamls/{functions[i]}.yaml"
                     with open(path.join(path.dirname(__file__), file_name)) as f:
                         dep, svc, hpa = yaml.load_all(f, Loader=SafeLoader)
-                    port = svc['spec']['ports'][0]['port']
-                    if is_already_deployed:
-                        service = Service(function[:-11], file_name, port)
-                    else:
-                        service = Service(function, file_name, port)
+                    # Update function to include new id.
+                    new_funct = functions[i] + '-' + rand_id
+                    # Update the old dict to include new id.
+                    new_dep, new_svc, new_hpa = rename_yaml(dep, svc, hpa, new_funct)
+                    # List of manifests as dicts to be converted into new YAML file.
+                    manifests = [new_dep, new_svc, new_hpa]
+                    # Update file name
+                    file_name = f"k8s-yamls/tmp/{new_funct}.yaml"
+                    # Dump manifests into new YAML file.
+                    with open(file_name, 'x') as f:
+                        yaml.dump_all(manifests, f)
+                    # Instantiate Service objects
+                    port = new_svc['spec']['ports'][0]['port']
+                    service = Service(new_funct, file_name, port)
                     services.append(service)
-
                     # Instantiate Deployment objects
-                    deployment = Deployment(dep, env.api)
+                    deployment = Deployment(new_dep, env.api)
                     deployments.append(deployment)
 
                 entry_service = services[entry_point_function_index]
@@ -318,9 +338,10 @@ def main(args):
         
         # Dump data in pickle file.
         rand_string = ''.join(random.choices(string.ascii_lowercase, k=10))
-        with open(f'data_{rand_string}.pickle', 'wb') as handle:
+        data_filename = f'./data/data_{rand_string}.pickle'
+        with open(data_filename, 'wb') as handle:
             pickle.dump(list(dc.data), handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print("Data successfully dumped.")
+        print(f"Data is saved in {data_filename}.")
 
     print("[INFO] Done!")
     print("[INFO] Cleaning up...")
