@@ -65,6 +65,7 @@ class DataCollect:
         self.lock = Lock()
         self.verbose = verbose
         self.success_count = success_count
+        self.rand_string = ''.join(random.choices(string.ascii_lowercase, k=10))
 
     # Check if the services for a benchmark have already been deployed.
     def benchmark_already_deployed(self, benchmark_name):
@@ -81,6 +82,15 @@ class DataCollect:
             workload.append((benchmark, rps, duration))
         return workload
 
+    # Save the current data to a pickle file.
+    def save_data(self):
+        # Dump data in pickle file.
+        data_filename = f'./data/data_{self.rand_string}.pickle'
+        with open(data_filename, 'wb') as handle:
+            pickle.dump(list(self.data), handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"[SAVE] Data saved in {data_filename}.")
+        with open('successes.pickle', 'wb') as handle:
+            pickle.dump(list(self.success_count), handle, protocol=pickle.HIGHEST_PROTOCOL)
     # Unpack Env state.
     def unpack_env_state(self, env_state):
         ret = []
@@ -226,7 +236,6 @@ class DataCollect:
                               cpu_utilizations,
                               mem_utilizations,
                               replicas,
-                              rps, 
                               duration, 
                               stat_issued, 
                               stat_completed, 
@@ -244,7 +253,9 @@ class DataCollect:
         run('''kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/database.yaml''', shell=True)
         run('''kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/memcached.yaml''', shell=True)
         delete_files_in_directory('./k8s-yamls/tmp/')
-
+        run('''find . -name 'rps*.csv' -delete''', shell=True)
+        print('Deleted all latency files.')
+        
 def main(args):
     with Manager() as manager:
         # Initialize shared variables
@@ -277,6 +288,7 @@ def main(args):
         t_start = time.time()
         while time.time() - t_start < int(args.t):
             # Generate a list of random (benchmark, rps, duration) values
+            dc.save_data()
             workload = dc.generate_workload(benchmarks)
 
             for benchmark, rps, duration in workload:
@@ -323,9 +335,9 @@ def main(args):
 
                 entry_service = services[entry_point_function_index]
                 # Check if the benchmark has already been deployed. If so, make a copy with a new ID.
-                print("[INFO] Current benchmark statuses:")
+                # print("[INFO] Current benchmark statuses:")
                 # Sort current benchmark statuses
-                pprint({k: v for k, v in sorted(dc.current_benchmarks.items(), key=lambda item: item[1], reverse=True)})
+                # pprint({k: v for k, v in sorted(dc.current_benchmarks.items(), key=lambda item: item[1], reverse=True)})
                 # if dc.benchmark_already_deployed(benchmark_name):
                 #     if verbose:
                 #         print(f"[INFO] Dropped proposed benchmark `{benchmark_name}` because it is already running.")
@@ -346,14 +358,6 @@ def main(args):
             p.terminate()
             p.join()
         
-        # Dump data in pickle file.
-        rand_string = ''.join(random.choices(string.ascii_lowercase, k=10))
-        data_filename = f'./data/data_{rand_string}.pickle'
-        with open(data_filename, 'wb') as handle:
-            pickle.dump(list(dc.data), handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f"Data is saved in {data_filename}.")
-        with open('successes.pickle', 'wb') as handle:
-            pickle.dump(list(dc.success_count), handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     print("[INFO] Done!")
     print("[INFO] Cleaning up...")

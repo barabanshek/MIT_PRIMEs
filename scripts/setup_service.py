@@ -1,6 +1,7 @@
 from os import path
 from subprocess import run
 from pprint import pprint
+import os
 
 class Service:
 
@@ -39,3 +40,5 @@ class Service:
             assert False, f"\n[ERROR] Failed to run command `kubectl delete -f {self.service_file}`\n[ERROR] Error message: {ret.stderr}"
 
         print(f"\n[DELETED] service with manifest `{self.service_file}` deleted.")
+        os.remove(self.service_file)
+        print(f"\n[DELETED] manifest `{self.service_file}` deleted.")
