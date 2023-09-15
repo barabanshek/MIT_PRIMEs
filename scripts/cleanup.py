@@ -20,5 +20,7 @@ def main():
     run('''kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/database.yaml''', shell=True)
     run('''kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/memcached.yaml''', shell=True)
     delete_files_in_directory('./k8s-yamls/tmp/')
+    run('''find . -name 'rps*.csv' -delete''', shell=True)
+    print('Deleted all latency files.')
 if __name__ == '__main__':
     main()
