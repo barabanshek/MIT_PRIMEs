@@ -10,7 +10,7 @@ def main(args):
     data_id = data_file[10:20]
     with open(data_file, 'rb') as handle:
         data = pickle.load(handle)
-    with open('successes.pickle', 'rb') as handle:
+    with open(f'./data/successes_{data_id}.pickle', 'rb') as handle:
         successes = pickle.load(handle)
         print(f'Benchmarks: {len(successes)}')
         print(f'Successes: {sum(successes)}')

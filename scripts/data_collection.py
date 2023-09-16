@@ -89,7 +89,7 @@ class DataCollect:
         with open(data_filename, 'wb') as handle:
             pickle.dump(list(self.data), handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"[SAVE] Data saved in {data_filename}.")
-        with open('successes.pickle', 'wb') as handle:
+        with open(f'./data/successes_{self.rand_string}.pickle', 'wb') as handle:
             pickle.dump(list(self.success_count), handle, protocol=pickle.HIGHEST_PROTOCOL)
     # Unpack Env state.
     def unpack_env_state(self, env_state):
