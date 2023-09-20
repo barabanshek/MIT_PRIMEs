@@ -25,8 +25,8 @@ spec:
               cpu: "250m"
               memory: "1024Mi"
             limits:
-              cpu: "250m"
-              memory: "1024Mi"
+              cpu: "1000m"
+              memory: "8192Mi"
           env:
             - name: TRANSFER_TYPE
               value: "INLINE"

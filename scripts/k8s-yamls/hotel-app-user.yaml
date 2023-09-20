@@ -33,8 +33,8 @@ spec:
               cpu: "250m"
               memory: "1024Mi"
             limits:
-              cpu: "250m"
-              memory: "1024Mi"
+              cpu: "1000m"
+              memory: "8192Mi"
 
         # Function ------------
         - name: function
@@ -48,8 +48,8 @@ spec:
               cpu: "250m"
               memory: "1024Mi"
             limits:
-              cpu: "250m"
-              memory: "1024Mi"
+              cpu: "1000m"
+              memory: "8192Mi"
 ---
 apiVersion: v1
 kind: Service
