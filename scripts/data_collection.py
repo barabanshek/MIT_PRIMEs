@@ -59,13 +59,22 @@ def delete_files_in_directory(directory_path):
 
 class DataCollect:
 
-    def __init__(self, data, current_benchmarks, success_count, verbose=False):
+    def __init__(self, data, current_benchmarks, success_count, args, verbose=False):
         self.data = data
         self.current_benchmarks = current_benchmarks
         self.lock = Lock()
         self.verbose = verbose
         self.success_count = success_count
         self.rand_string = ''.join(random.choices(string.ascii_lowercase, k=10))
+        with open(args.config, 'r') as f:
+            json_data = json.load(f)
+            json_data['total_duration'] = args.t
+            json_data['workload_interval'] = args.d
+        config_folder = './experiment-configs'
+        config_filename = f'{config_folder}/{self.rand_string}_configs.json'
+        with open(config_filename, 'w') as f:
+            json.dump(json_data, f)
+            print(f'[INFO] Saved configs in {config_filename}')
 
     # Check if the services for a benchmark have already been deployed.
     def benchmark_already_deployed(self, benchmark_name):
@@ -160,11 +169,26 @@ class DataCollect:
         timestamp = time.time()
         # Get scales and resource utils.
         replicas = []
+        cpu_requests = []
+        mem_requests = []
+        cpu_limits = []
+        mem_limits = []
         cpu_utilizations = []
         mem_utilizations = []
         for service in services:
+            # Get the number of replicas.
             get_replicas_cmd = f"kubectl get deployment/{service.name} -o jsonpath='{{.spec.replicas}}'"
             replicas.append(int(run(get_replicas_cmd, shell=True, capture_output=True, universal_newlines=True).stdout))
+            # Get the requests and limits.
+            get_cpu_requests_cmd = f"kubectl get deployment/{service.name} -o jsonpath='{{.spec.template.spec.containers[0].resources.requests.cpu}}'"
+            get_mem_requests_cmd = f"kubectl get deployment/{service.name} -o jsonpath='{{.spec.template.spec.containers[0].resources.requests.memory}}'"
+            get_cpu_limits_cmd = f"kubectl get deployment/{service.name} -o jsonpath='{{.spec.template.spec.containers[0].resources.limits.cpu}}'"
+            get_mem_limits_cmd = f"kubectl get deployment/{service.name} -o jsonpath='{{.spec.template.spec.containers[0].resources.limits.memory}}'"
+            cpu_requests.append(run(get_cpu_requests_cmd, shell=True, capture_output=True, universal_newlines=True).stdout)
+            mem_requests.append(run(get_mem_requests_cmd, shell=True, capture_output=True, universal_newlines=True).stdout)
+            cpu_limits.append(run(get_cpu_limits_cmd, shell=True, capture_output=True, universal_newlines=True).stdout)
+            mem_limits.append(run(get_mem_limits_cmd, shell=True, capture_output=True, universal_newlines=True).stdout)         
+            
             metrics_success = False
             # Try getting metrics multiple times
             for i in range(max_retries):
@@ -206,12 +230,17 @@ class DataCollect:
 
         unpacked_env_state = self.unpack_env_state(env_state)
         num_nodes = len(unpacked_env_state)
-        avgs = np.zeros(len(unpacked_env_state[0]))
+        num_metrics = len(unpacked_env_state[0])
+        state = []
+        for i in range(num_metrics):
+            state.append([unpacked_env_state[j][i] for j in range(num_nodes)])
 
-        for i in range(num_nodes):
-            avgs = np.add(avgs, np.array(unpacked_env_state[i])/num_nodes)
+        # avgs = np.zeros(len(unpacked_env_state[0]))
+
+        # state = [np.array(unpacked_env_state[i]) for i in range(num_nodes)]
+        # avgs = np.add(avgs, np.array(unpacked_env_state[i])/num_nodes)
                     
-        cpu_idle, cpu_user, cpu_system, mem_free, net_transmit, net_receive = avgs
+        cpu_idle, cpu_user, cpu_system, mem_free, net_transmit, net_receive = state
 
         if self.verbose:
             print(f"[INFO] Invocation statistics for benchmark `{benchmark_name}`:\n")
@@ -236,6 +265,7 @@ class DataCollect:
                               cpu_utilizations,
                               mem_utilizations,
                               replicas,
+                              cpu_requests, cpu_limits, mem_requests, mem_limits,
                               duration, 
                               stat_issued, 
                               stat_completed, 
@@ -270,7 +300,7 @@ def main(args):
         env = Env(verbose=verbose)
 
         # Instantiate DataCollect.
-        dc = DataCollect(data, current_benchmarks, success_count, verbose=verbose)
+        dc = DataCollect(data, current_benchmarks, success_count, args, verbose=verbose)
 
         # Setup Prometheus and check if setup is successful.
         if not env.setup_prometheus():
