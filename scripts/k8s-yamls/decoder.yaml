@@ -22,10 +22,10 @@ spec:
           args: ["-addr", "recog.default.svc.cluster.local:80"]
           resources:
             requests:
-              cpu: "250m"
+              cpu: "1000m"
               memory: "1024Mi"
             limits:
-              cpu: "250m"
+              cpu: "2000m"
               memory: "1024Mi"
           env:
             - name: TRANSFER_TYPE

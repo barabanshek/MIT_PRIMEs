@@ -29,10 +29,10 @@ spec:
           args: []
           resources:
             requests:
-              cpu: "250m"
+              cpu: "1000m"
               memory: "1024Mi"
             limits:
-              cpu: "1000m"
+              cpu: "4000m"
               memory: "8192Mi"
           ports:
             # For `h2c`, see https://knative.tips/networking/http2/
