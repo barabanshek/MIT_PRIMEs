@@ -4,8 +4,9 @@ import pickle
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 from scipy import stats
-
+from pathlib import Path
 from pprint import pprint
 
 def first_index(arr):
@@ -28,6 +29,10 @@ def compute_rps_deltas(reals, targets):
         # Compute percent difference.
         deltas.append(np.abs(real - target)/np.mean([real, target]))
     return deltas
+
+def make_dir(dir_name):
+    Path(dir_name).mkdir(parents=True, exist_ok=True)
+
 class Data:
     def __init__(self, df, data_id):
         self.df = df
@@ -38,6 +43,7 @@ class Data:
         self.df.drop(index, inplace=True)
         
     def get_cleaned_data(self, folder='./data-analysis'):
+        make_dir(folder)
         cleaned_data_file = f"{folder}/cleaned_data_{self.data_id}.csv"
         self.df.to_csv(cleaned_data_file, columns=self.df.columns)
         print("Cleaned.")
@@ -55,7 +61,8 @@ class Data:
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.plot(np.unique(xs), np.poly1d(np.polyfit(xs, ys, 1))(np.unique(xs)), color='r')
-
+        
+        make_dir(save_folder)
         plt.savefig(f'{save_folder}/{xlabel}-{ylabel}_plot.png')
         print('Done plotting.')
 
@@ -79,12 +86,25 @@ class Data:
         # print(f'Correlation using metric {metric}: {round(stat.statistic, 5)}')
 
     def get_correlation_table(self, metric='pearson', ignored_columns=[]):
-        for col1 in self.df.columns:
+        correlations_df = self.df.drop(columns=ignored_columns, inplace=False)
+        for col1 in correlations_df.columns:
             if col1 not in ignored_columns:
-                self.table['column'] = [col2 for col2 in self.df.columns if col2 not in ignored_columns]
-                self.table[col1] = [self.get_correlations(col1, col2, metric=metric) for col2 in self.df.columns if col2 not in ignored_columns]
-        table_df = pd.DataFrame(data=self.table)
+                self.table['column'] = [col2 for col2 in correlations_df.columns]
+                self.table[col1] = [self.get_correlations(col1, col2, metric=metric) for col2 in correlations_df.columns]
+        table_df = pd.DataFrame(data=self.table, columns=correlations_df.columns, index=self.table['column'])
         return table_df
+    
+    def get_heatmap(self, ignored_columns, metric='pearson'):
+        heatmap_dims = (10, 10)
+        fig, ax = plt.subplots(figsize=heatmap_dims)
+        table_df = self.get_correlation_table(metric=metric, ignored_columns=ignored_columns)
+        heatmap = sns.heatmap(table_df, ax=ax, annot=True)
+        plt.xticks(rotation=30)
+        fig = heatmap.get_figure()
+        make_dir('./heatmaps')
+        fig.savefig(f'./heatmaps/{metric}_correlations_{self.data_id}.png')
+
+        print("Heatmap saved.")
 
 def main(args):
     data_file = args.f
@@ -116,6 +136,7 @@ def main(args):
                               'avg_net_transmit (bps)', 'avg_net_receive (bps)']
     df['rps_delta'] = compute_rps_deltas(df['rps_real'], df['rps_target'])
     folder = './data-analysis'
+    make_dir(folder)
     df.to_csv(f"{folder}/data_{data_id}.csv", columns=df.columns)
     data_object = Data(df, data_id)
     data_object.get_cleaned_data(folder)
@@ -129,14 +150,8 @@ def main(args):
                         'avg_mem_free',
                         'avg_net_transmit (bps)', 
                         'avg_net_receive (bps)']
-    
-    table_df = data_object.get_correlation_table(metric=metric, ignored_columns=ignored_columns)
-    table_df.to_csv(f"{folder}/{metric}_correlation_table_{data_id}.csv", columns=table_df.columns)
-    table_df.style.background_gradient(cmap ='viridis')\
-            .set_properties(**{'font-size': '20px'})
-    table_df.style.background_gradient(cmap ='viridis')\
-        .to_excel(f'{folder}/{metric}_correlations_{data_id}.xlsx', engine='openpyxl')
-    print("Heatmap saved.")
+
+    data_object.get_heatmap(ignored_columns=ignored_columns, metric=metric)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
