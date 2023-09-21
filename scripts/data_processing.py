@@ -63,7 +63,7 @@ class Data:
         plt.plot(np.unique(xs), np.poly1d(np.polyfit(xs, ys, 1))(np.unique(xs)), color='r')
         
         make_dir(save_folder)
-        plt.savefig(f'{save_folder}/{xlabel}-{ylabel}_plot.png')
+        plt.savefig(f'{save_folder}/{self.data_id}_{xlabel}-{ylabel}_plot.png')
         print('Done plotting.')
 
     def get_correlations(self, col1, col2, metric='pearson'):
@@ -85,24 +85,34 @@ class Data:
         return round(stat.statistic, 5)        
         # print(f'Correlation using metric {metric}: {round(stat.statistic, 5)}')
 
-    def get_correlation_table(self, metric='pearson', ignored_columns=[]):
+    def get_correlation_table(self, metric='pearson', ignored_columns=[], abs=False):
         correlations_df = self.df.drop(columns=ignored_columns, inplace=False)
         for col1 in correlations_df.columns:
             if col1 not in ignored_columns:
                 self.table['column'] = [col2 for col2 in correlations_df.columns]
+            if abs:
+                self.table[col1] = map(np.abs, [self.get_correlations(col1, col2, metric=metric) for col2 in correlations_df.columns])
+            else:
                 self.table[col1] = [self.get_correlations(col1, col2, metric=metric) for col2 in correlations_df.columns]
         table_df = pd.DataFrame(data=self.table, columns=correlations_df.columns, index=self.table['column'])
         return table_df
     
-    def get_heatmap(self, ignored_columns, metric='pearson'):
+    def get_heatmap(self, ignored_columns, metric='pearson', abs=False):
         heatmap_dims = (10, 10)
         fig, ax = plt.subplots(figsize=heatmap_dims)
-        table_df = self.get_correlation_table(metric=metric, ignored_columns=ignored_columns)
-        heatmap = sns.heatmap(table_df, ax=ax, annot=True)
+        table_df = self.get_correlation_table(metric=metric, ignored_columns=ignored_columns, abs=abs)
+        heatmap = sns.heatmap(table_df, ax=ax, robust=True, annot=True)
         plt.xticks(rotation=30)
+        if abs:
+            plt.title(f"Magnitude of Pearson Coefficients for Experiment '{self.data_id}'\n")
+        else:
+            plt.title(f"Pearson Coefficients for Experiment '{self.data_id}'\n")
         fig = heatmap.get_figure()
         make_dir('./heatmaps')
-        fig.savefig(f'./heatmaps/{metric}_correlations_{self.data_id}.png')
+        if abs:
+            fig.savefig(f'./heatmaps/{self.data_id}_abs_{metric}_correlations.png')
+        else:
+            fig.savefig(f'./heatmaps/{self.data_id}_{metric}_correlations.png')
 
         print("Heatmap saved.")
 
@@ -151,11 +161,12 @@ def main(args):
                         'avg_net_transmit (bps)', 
                         'avg_net_receive (bps)']
 
-    data_object.get_heatmap(ignored_columns=ignored_columns, metric=metric)
+    data_object.get_heatmap(ignored_columns=ignored_columns, metric=metric, abs=args.a)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--f')
     parser.add_argument('-m', default='pearson')
+    parser.add_argument('-a', action='store_true')
     args = parser.parse_args()
     main(args)
