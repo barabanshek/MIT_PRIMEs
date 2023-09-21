@@ -30,8 +30,8 @@ spec:
             - --value="dis"
           resources:
             requests:
-              cpu: "250m"
-              memory: "1024Mi"
+              cpu: "60m"
+              memory: "64Mi"
             limits:
               cpu: "1000m"
               memory: "8192Mi"
@@ -45,8 +45,8 @@ spec:
             - --db_addr=hotel-app-database:27017
           resources:
             requests:
-              cpu: "250m"
-              memory: "1024Mi"
+              cpu: "60m"
+              memory: "64Mi"
             limits:
               cpu: "1000m"
               memory: "8192Mi"
