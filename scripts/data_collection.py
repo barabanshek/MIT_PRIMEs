@@ -100,6 +100,12 @@ class DataCollect:
         print(f"[SAVE] Data saved in {data_filename}.")
         with open(f'./data/successes_{self.rand_string}.pickle', 'wb') as handle:
             pickle.dump(list(self.success_count), handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # Delete latency files.
+    def delete_latency_files(self):
+        run('''find . -name 'rps*.csv' -delete''', shell=True)
+        print('Deleted all latency files.')
+
     # Unpack Env state.
     def unpack_env_state(self, env_state):
         ret = []
@@ -319,6 +325,7 @@ def main(args):
         while time.time() - t_start < int(args.t):
             # Generate a list of random (benchmark, rps, duration) values
             dc.save_data()
+            dc.delete_latency_files()
             workload = dc.generate_workload(benchmarks)
 
             for benchmark, rps, duration in workload:
