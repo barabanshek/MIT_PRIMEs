@@ -2,7 +2,6 @@ import argparse
 import pandas as pd
 import pickle
 from data_processing import Data, compute_rps_deltas
-from colorama import Fore
 
 def main(args):
     data_file = args.f
