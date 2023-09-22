@@ -74,7 +74,7 @@ spec:
     kind: Deployment
     name: hotel-app-recommendation
   minReplicas: 1
-  maxReplicas: 1000
+  maxReplicas: 100
   metrics:
     - type: Resource
       resource:

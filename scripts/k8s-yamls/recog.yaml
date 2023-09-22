@@ -62,7 +62,7 @@ spec:
     kind: Deployment
     name: recog
   minReplicas: 1
-  maxReplicas: 1000
+  maxReplicas: 100
   metrics:
     - type: Resource
       resource:
