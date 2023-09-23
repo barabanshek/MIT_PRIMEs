@@ -416,7 +416,7 @@ class Env:
 
             #
             mem_free_frac = mem_free_avg / (float)(self.total_mem_)
-            tpl['mem'] = mem_free_frac
+            tpl['mem'] = mem_free_avg
 
             # Append all metrics for this worker
             ret[p_id] = tpl

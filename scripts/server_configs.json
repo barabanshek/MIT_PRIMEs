@@ -1,8 +1,9 @@
 {
     "servers": {
         "hostnames": {
-            "ms0913.utah.cloudlab.us" : "master",
-            "ms0937.utah.cloudlab.us" : "worker"
+            "ms0926.utah.cloudlab.us" : "master",
+            "ms0909.utah.cloudlab.us" : "worker",
+            "ms0912.utah.cloudlab.us" : "worker"
         }
     },
 
