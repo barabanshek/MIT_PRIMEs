@@ -30,8 +30,8 @@ def run_service(env, service, invoker_configs, func_name):
     mem_free = 0
     for f in env_state:
         print(f)
-        cpu_util += f['cpu'][1]
-        mem_free += f['mem']
+        cpu_util += env_state[f]['cpu'][1]
+        mem_free += env_state[f]['mem']
 
     cpu_util/=len(env_state)
     mem_free/=len(env_state)
