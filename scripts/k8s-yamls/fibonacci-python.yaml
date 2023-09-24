@@ -21,11 +21,11 @@ spec:
           image: docker.io/vhiveease/relay:latest
           resources:
             requests:
-              memory: "20Mi"
-              cpu: "250m"
+              memory: 20Mi
+              cpu: 250m
             limits:
-              memory: "20Mi"
-              cpu: "250m"
+              memory: 20Mi
+              cpu: 250m
           ports:
             - name: h2c
               containerPort: 50000
@@ -42,11 +42,11 @@ spec:
           image: docker.io/vhiveease/fibonacci-python:latest
           resources:
             requests:
-              memory: "20Mi"
-              cpu: "250m"
+              memory: 20Mi
+              cpu: 250m
             limits:
-              memory: "20Mi"
-              cpu: "250m"
+              memory: 20Mi
+              cpu: 250m
           args:
             - --addr=0.0.0.0
             - --port=50051

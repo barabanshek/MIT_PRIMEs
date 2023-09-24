@@ -21,12 +21,12 @@ spec:
           imagePullPolicy: Always
           resources:
             requests:
-              memory: "20Mi"
-              cpu: "250m"
+              memory: 20Mi
+              cpu: 250m
             limits:
-              memory: "20Mi"
-              cpu: "250m"
-              
+              memory: 20Mi
+              cpu: 250m
+
           args: ["-addr", "recog.default.svc.cluster.local:80"]
           env:
             - name: TRANSFER_TYPE
