@@ -4,7 +4,7 @@
         "entry-point" : "fibonacci-python",
         "functions" : ["fibonacci-python"],
         "invoker-configs" : {
-            "duration" : [15, 30],
+            "duration" : [5, 15],
             "rps" : [100, 400]
             }
     },
@@ -13,7 +13,7 @@
         "entry-point" : "hotel-app-geo",
         "functions" : ["hotel-app-geo"],
         "invoker-configs" : {
-            "duration" : [15, 30],
+            "duration" : [5, 15],
             "rps" : [100, 400]
             }
     },
@@ -22,7 +22,7 @@
         "entry-point" : "hotel-app-profile",
         "functions" : ["hotel-app-profile"],
         "invoker-configs" : {
-            "duration" : [15, 30],
+            "duration" : [5, 15],
             "rps" : [100, 400]
             }
     },
@@ -31,7 +31,7 @@
         "entry-point" : "hotel-app-user",
         "functions" : ["hotel-app-user"],
         "invoker-configs" : {
-            "duration" : [15, 30],
+            "duration" : [5, 15],
             "rps" : [100, 400]
             }
     },
@@ -40,7 +40,7 @@
         "entry-point" : "streaming",
         "functions" : ["streaming", "decoder", "recog"],
         "invoker-configs" : {
-            "duration" : [15, 30],
+            "duration" : [5, 15],
             "rps" : [1, 15]
             }
     }

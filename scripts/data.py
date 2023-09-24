@@ -86,8 +86,8 @@ def main(args):
             writer.writerow(["rps", "duration", "service_name", "cpu_lim", "mem_lim", "50%", "90%", "99%", "cpu_util", "mem_free", "complete_rate"])
             file.close()
     env.scale_deployments(deployments, 1)
-    cpus = [str(x) + "m" for x in range (40, 1040, 40)]
-    memorys = [str(x) + "Mi" for x in range(100, 4100, 100)]
+    cpus = [str(x) + "m" for x in range (50, 1050, 50)]
+    memorys = [str(x) + "Mi" for x in range(100, 2100, 200)]
 
     for h in range(len(services)):
         for k in range(5):
