@@ -87,7 +87,7 @@ def main(args):
             writer = csv.writer(file)
             writer.writerow(["rps", "duration", "service_name", "50%", "90%", "99%", "cpu_util", "mem_free", "complete_rate"])
             file.close()
-
+    env.scale_deployments(deployments, 1)
     cpus = [str(x) + "m" for x in range (40, 1040, 40)]
     memorys = [str(x) + "Mi" for x in range(100, 4100, 100)]
 
@@ -97,7 +97,7 @@ def main(args):
             rps = random.randint(invoker_configs[h]["rps"][0], invoker_configs[h]["rps"][1])
             for i in cpus:
                 for j in memorys:
-                    env.scale_pods(deployments[h], i, j)
+                    env.scale_pods([deployments[h]], i, j)
                     run_service(env, services[h], {"duration": duration, "rps": rps}, entry_point_function[h])
 
 if __name__ == "__main__":
