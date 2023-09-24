@@ -29,6 +29,7 @@ def run_service(env, service, invoker_configs, func_name):
     cpu_util = 0
     mem_free = 0
     for f in env_state:
+        print(f)
         cpu_util += f['cpu'][1]
         mem_free += f['mem']
 
@@ -96,7 +97,7 @@ def main(args):
             rps = random.randint(invoker_configs[h]["rps"][0], invoker_configs[h]["rps"][1])
             for i in cpus:
                 for j in memorys:
-                    env.scale_pods(deployments, i, j)
+                    env.scale_pods(deployments[h], i, j)
                     run_service(env, services[h], {"duration": duration, "rps": rps}, entry_point_function[h])
 
 if __name__ == "__main__":
