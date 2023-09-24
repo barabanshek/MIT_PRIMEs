@@ -22,6 +22,13 @@ spec:
           ports:
             - name: h2c
               containerPort: 50000
+          resources:
+            requests:
+              memory: 20Mi
+              cpu: 250m
+            limits:
+              memory: 20Mi
+              cpu: 250m
           args:
             - --addr=0.0.0.0:50000
             - --function-endpoint-url=0.0.0.0
@@ -32,6 +39,13 @@ spec:
         # Function ------------
         - name: function
           image: docker.io/vhiveease/hotel-app-profile:latest
+          resources:
+            requests:
+              memory: 20Mi
+              cpu: 250m
+            limits:
+              memory: 20Mi
+              cpu: 250m
           args:
             - --url=0.0.0.0
             - --port=8083

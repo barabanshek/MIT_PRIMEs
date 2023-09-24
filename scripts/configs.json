@@ -5,7 +5,7 @@
         "functions" : ["fibonacci-python"],
         "invoker-configs" : {
             "duration" : [15, 30],
-            "rps" : [100, 400]
+            "rps" : [100, 1000]
             }
     },
     {
@@ -14,7 +14,25 @@
         "functions" : ["hotel-app-geo"],
         "invoker-configs" : {
             "duration" : [15, 30],
-            "rps" : [100, 400]
+            "rps" : [100, 1000]
+            }
+    },
+    {
+        "name" : "hotel-app-profile",
+        "entry-point" : "hotel-app-profile",
+        "functions" : ["hotel-app-profile"],
+        "invoker-configs" : {
+            "duration" : [15, 30],
+            "rps" : [100, 1000]
+            }
+    },
+    {
+        "name" : "hotel-app-user",
+        "entry-point" : "hotel-app-user",
+        "functions" : ["hotel-app-user"],
+        "invoker-configs" : {
+            "duration" : [15, 30],
+            "rps" : [100, 1000]
             }
     },
     {

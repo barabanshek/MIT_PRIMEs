@@ -94,8 +94,8 @@ def main(args):
         for k in range(5):
             duration = random.randint(invoker_configs[h]["duration"][0], invoker_configs[h]["duration"][1])
             rps = random.randint(invoker_configs[h]["rps"][0], invoker_configs[h]["rps"][1])
-            for i in range(cpus):
-                for j in range(memorys):
+            for i in cpus:
+                for j in memorys:
                     env.scale_pods(deployments, i, j)
                     run_service(env, services[h], {"duration": duration, "rps": rps}, entry_point_function[h])
 
