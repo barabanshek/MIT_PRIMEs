@@ -20,8 +20,7 @@ def run_service(env, service, invoker_configs, func_name):
         env.invoke_service(service, duration, rps)
     lat_stat = env.get_latencies(stat_lat_filename)
     if lat_stat == []:
-        print("[ERROR] No responses were returned, no latency statistics is computed.")
-        return
+        lat_stat.append(0)
     
     # Sample env.
     env_state = env.sample_env(duration)
