@@ -19,6 +19,13 @@ spec:
         - name: recog
           image: docker.io/vhiveease/video-analytics-recog:latest
           imagePullPolicy: Always
+          resources:
+            requests:
+              memory: 20Mi
+              cpu: 250m
+            limits:
+              memory: 20Mi
+              cpu: 250m
           env:
             - name: TRANSFER_TYPE
               value: "INLINE"

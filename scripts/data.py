@@ -52,7 +52,7 @@ def main(args):
     invoker_configs = []
     for f in json_data["benchmarks"]:
         entry_point_function.append(f['entry-point'])
-        functions.append(f['functions'])
+        functions.append(f['functions'][0])
         invoker_configs.append(f['invoker-configs'])
 
     # Load YAML files as JSON-formatted dictionaries
@@ -98,3 +98,9 @@ def main(args):
                 for j in range(memorys):
                     env.scale_pods(deployments, i, j)
                     run_service(env, services[h], {"duration": duration, "rps": rps}, entry_point_function[h])
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config')
+    args = parser.parse_args()
+    main(args)

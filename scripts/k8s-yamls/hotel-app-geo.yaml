@@ -20,6 +20,13 @@ spec:
         - name: relay
           image: docker.io/vhiveease/relay:latest
           ports:
+          resources:
+            requests:
+              memory: 20Mi
+              cpu: 250m
+            limits:
+              memory: 20Mi
+              cpu: 250m
             - name: h2c
               containerPort: 50000
           args:
@@ -31,6 +38,13 @@ spec:
         # Function ------------
         - name: function
           image: docker.io/vhiveease/hotel-app-geo:latest
+          resources:
+            requests:
+              memory: 20Mi
+              cpu: 250m
+            limits:
+              memory: 20Mi
+              cpu: 250m
           args:
             - --url=0.0.0.0
             - --port=8083
