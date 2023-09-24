@@ -8,8 +8,10 @@ from k8s_env_shim import Env
 from pprint import pprint
 from setup_service import Service
 from setup_deployment import Deployment
+import random
+import numpy as np
 
-def run_service(env, service, invoker_configs):
+def run_service(env, service, invoker_configs, func_name):
     # Get invoker configs.
     duration = invoker_configs['duration']
     rps = invoker_configs['rps']
@@ -24,23 +26,20 @@ def run_service(env, service, invoker_configs):
     # Sample env.
     env_state = env.sample_env(duration)
 
-    with open("output.json", "w", newline = '') as file:
-            writer = csv.writer(file)
-            writer.writerow(["rps", lat_stat[(int)(len(lat_stat) * 0.5)], lat_stat[(int)(len(lat_stat) * 0.90)], lat_stat[(int)(len(lat_stat) * 0.99)], lat_stat[(int)(len(lat_stat) * 0.999)],"completerate"])
-            file.close()
+    cpu_util = 0
+    mem_free = 0
+    for f in env_state:
+        cpu_util += f['cpu'][1]
+        mem_free += f['mem']
 
-    # Print statistics.
-    print("[INFO] Invocation statistics:\n")
+    cpu_util/=len(env_state)
+    mem_free/=len(env_state)
     lat_stat.sort()
-    print(
-        f'    stat: {stat_issued}, {stat_completed}, {stat_real_rps}, {stat_target_rps}, latency file: {stat_lat_filename}')
-    print('    50th: ', lat_stat[(int)(len(lat_stat) * 0.5)])
-    print('    90th: ', lat_stat[(int)(len(lat_stat) * 0.90)])
-    print('    99th: ', lat_stat[(int)(len(lat_stat) * 0.99)])
-    print('    99.9th: ', lat_stat[(int)(len(lat_stat) * 0.999)])
-    print('    env_state:')
 
-    print(env_state)
+    with open("output.csv", "a", newline = '') as file:
+            writer = csv.writer(file)
+            writer.writerow([rps, duration, func_name, lat_stat[(int)(len(lat_stat) * 0.5)], lat_stat[(int)(len(lat_stat) * 0.90)], lat_stat[(int)(len(lat_stat) * 0.99)], cpu_util, mem_free, stat_issued/stat_completed])
+            file.close()
 
 def main(args):
     env = Env()
@@ -48,10 +47,13 @@ def main(args):
     with open(args.config, 'r') as f:
         json_data = json.load(f)
         
-    entry_point_function = json_data['entry-point']
-    functions = json_data['functions']
-    invoker_configs = json_data['invoker-configs']
-    entry_point_function_index = functions.index(entry_point_function)
+    entry_point_function = []
+    functions = []
+    invoker_configs = []
+    for f in json_data["benchmarks"]:
+        entry_point_function.append(f['entry-point'])
+        functions.append(f['functions'])
+        invoker_configs.append(f['invoker-configs'])
 
     # Load YAML files as JSON-formatted dictionaries
     deployments = []
@@ -80,13 +82,19 @@ def main(args):
         print("[ERROR] Benchmark setup failed, please read error message and try again.")
         return 0
     
-    entry_service = services[entry_point_function_index]
+    with open("output.csv", "a", newline = '') as file:
+            writer = csv.writer(file)
+            writer.writerow(["rps", "duration", "service_name", "50%", "90%", "99%", "cpu_util", "mem_free", "complete_rate"])
+            file.close()
 
-    cpus = ["10m", "50m", "100m", "250m", "500m", "1000m"]
-    memorys = ["50Mi", "250Mi", "1000Mi", "2000Mi"]
+    cpus = [str(x) + "m" for x in range (40, 1040, 40)]
+    memorys = [str(x) + "Mi" for x in range(100, 4100, 100)]
 
-    for i in range(cpus):
-        for j in range(memorys):
-            env.scale_pods(deployments, i, j)
-            for k in range(5):
-                run_service(env, entry_service, invoker_configs)
+    for h in range(len(services)):
+        for k in range(5):
+            duration = random.randint(invoker_configs[h]["duration"][0], invoker_configs[h]["duration"][1])
+            rps = random.randint(invoker_configs[h]["rps"][0], invoker_configs[h]["rps"][1])
+            for i in range(cpus):
+                for j in range(memorys):
+                    env.scale_pods(deployments, i, j)
+                    run_service(env, services[h], {"duration": duration, "rps": rps}, entry_point_function[h])
