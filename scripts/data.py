@@ -37,7 +37,7 @@ def run_service(env, service, invoker_configs, func_name):
     mem_free/=len(env_state)
     lat_stat.sort()
 
-    with open("output.csv", "a", newline = '') as file:
+    with open("output.csv", "w", newline = '') as file:
             writer = csv.writer(file)
             writer.writerow([rps, duration, func_name, lat_stat[(int)(len(lat_stat) * 0.5)], lat_stat[(int)(len(lat_stat) * 0.90)], lat_stat[(int)(len(lat_stat) * 0.99)], cpu_util, mem_free, stat_issued/stat_completed])
             file.close()
@@ -83,7 +83,7 @@ def main(args):
         print("[ERROR] Benchmark setup failed, please read error message and try again.")
         return 0
     
-    with open("output.csv", "a", newline = '') as file:
+    with open("output.csv", "w", newline = '') as file:
             writer = csv.writer(file)
             writer.writerow(["rps", "duration", "service_name", "50%", "90%", "99%", "cpu_util", "mem_free", "complete_rate"])
             file.close()
