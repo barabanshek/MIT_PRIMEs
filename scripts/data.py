@@ -11,7 +11,7 @@ from setup_deployment import Deployment
 import random
 import numpy as np
 
-def run_service(env, service, invoker_configs, func_name):
+def run_service(env, service, invoker_configs, func_name, cpu_lim, mem_lim):
     # Get invoker configs.
     duration = invoker_configs['duration']
     rps = invoker_configs['rps']
@@ -37,7 +37,7 @@ def run_service(env, service, invoker_configs, func_name):
 
     with open("output.csv", "a", newline = '') as file:
             writer = csv.writer(file)
-            writer.writerow([rps, duration, func_name, lat_stat[(int)(len(lat_stat) * 0.5)], lat_stat[(int)(len(lat_stat) * 0.90)], lat_stat[(int)(len(lat_stat) * 0.99)], cpu_util, mem_free, stat_completed/stat_issued])
+            writer.writerow([rps, duration, func_name, cpu_lim, mem_lim, lat_stat[(int)(len(lat_stat) * 0.5)], lat_stat[(int)(len(lat_stat) * 0.90)], lat_stat[(int)(len(lat_stat) * 0.99)], cpu_util, mem_free, stat_completed/stat_issued])
             file.close()
 
 def main(args):
@@ -83,7 +83,7 @@ def main(args):
     
     with open("output.csv", "a", newline = '') as file:
             writer = csv.writer(file)
-            writer.writerow(["rps", "duration", "service_name", "50%", "90%", "99%", "cpu_util", "mem_free", "complete_rate"])
+            writer.writerow(["rps", "duration", "service_name", "cpu_lim", "mem_lim", "50%", "90%", "99%", "cpu_util", "mem_free", "complete_rate"])
             file.close()
     env.scale_deployments(deployments, 1)
     cpus = [str(x) + "m" for x in range (40, 1040, 40)]
@@ -96,7 +96,7 @@ def main(args):
             for i in cpus:
                 for j in memorys:
                     env.scale_pods([deployments[h]], i, j)
-                    run_service(env, services[h], {"duration": duration, "rps": rps}, entry_point_function[h])
+                    run_service(env, services[h], {"duration": duration, "rps": rps}, entry_point_function[h], i, j)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
