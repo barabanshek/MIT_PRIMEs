@@ -40,11 +40,11 @@ spec:
           image: docker.io/vhiveease/hotel-app-geo:latest
           resources:
             requests:
-              memory: 20Mi
-              cpu: 250m
+              memory: "20Mi"
+              cpu: "250m"
             limits:
-              memory: 20Mi
-              cpu: 250m
+              memory: "20Mi"
+              cpu: "250m"
           args:
             - --url=0.0.0.0
             - --port=8083

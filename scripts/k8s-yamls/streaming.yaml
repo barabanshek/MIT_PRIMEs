@@ -21,11 +21,11 @@ spec:
           imagePullPolicy: Always
           resources:
             requests:
-              memory: 20Mi
-              cpu: 250m
+              memory: "20Mi"
+              cpu: "250m"
             limits:
-              memory: 20Mi
-              cpu: 250m
+              memory: "20Mi"
+              cpu: "250m"
           args: ["-addr", "decoder.default.svc.cluster.local"]
           env:
             - name: TRANSFER_TYPE
