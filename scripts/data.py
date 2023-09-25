@@ -31,12 +31,11 @@ def run_service(env, service, invoker_configs, func_name, cpu_lim, mem_lim):
         for f in env_state:
             cpu_util += env_state[f]['cpu'][1]
             mem_free += env_state[f]['mem']
+        cpu_util/=len(env_state)
+        mem_free/=len(env_state)
     except:
         print("failed to sample environment")
     
-
-    cpu_util/=len(env_state)
-    mem_free/=len(env_state)
     lat_stat.sort()
 
     with open("output.csv", "a", newline = '') as file:
