@@ -23,13 +23,17 @@ def run_service(env, service, invoker_configs, func_name, cpu_lim, mem_lim):
         lat_stat.append(0)
     
     # Sample env.
-    env_state = env.sample_env(duration)
-
+    env_state = 0
     cpu_util = 0
     mem_free = 0
-    for f in env_state:
-        cpu_util += env_state[f]['cpu'][1]
-        mem_free += env_state[f]['mem']
+    try:
+        env_state = env.sample_env(duration)
+        for f in env_state:
+            cpu_util += env_state[f]['cpu'][1]
+            mem_free += env_state[f]['mem']
+    except:
+        print("failed to sample environment")
+    
 
     cpu_util/=len(env_state)
     mem_free/=len(env_state)
