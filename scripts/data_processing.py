@@ -48,10 +48,12 @@ class Data:
         self.df.to_csv(cleaned_data_file, columns=self.df.columns)
         print("Cleaned.")
 
-    def plot_data(self, xlabel, ylabel, save_folder, title):
+    def plot_data(self, benchmark, xlabel, ylabel, save_folder, title):
+        benchmark_index = self.df[self.df['benchmark'] == benchmark].index
+        benchmark_df = pd.DataFrame(self.df, columns=self.df.columns, index=benchmark_index)
         xs = []
         ys = []
-        for m1, m2 in zip(self.df[xlabel], self.df[ylabel]):
+        for m1, m2 in zip(benchmark_df[xlabel], benchmark_df[ylabel]):
             if standardize_format(m1) != 'skip' and standardize_format(m2) != 'skip':
                 xs.append(standardize_format(m1))
                 ys.append(standardize_format(m2))
@@ -63,13 +65,15 @@ class Data:
         plt.plot(np.unique(xs), np.poly1d(np.polyfit(xs, ys, 1))(np.unique(xs)), color='r')
         
         make_dir(save_folder)
-        plt.savefig(f'{save_folder}/{self.data_id}_{xlabel}-{ylabel}_plot.png')
+        plt.savefig(f'{save_folder}/{self.data_id}_{benchmark}_{xlabel}-{ylabel}_plot.png')
         print('Done plotting.')
 
-    def get_correlations(self, col1, col2, metric='pearson'):
+    def get_correlations(self, benchmark, col1, col2, metric='pearson'):
+        benchmark_index = self.df[self.df['benchmark'] == benchmark].index
+        benchmark_df = pd.DataFrame(self.df, columns=self.df.columns, index=benchmark_index)
         xs = []
         ys = []
-        for m1, m2 in zip(self.df[col1], self.df[col2]):
+        for m1, m2 in zip(benchmark_df[col1], benchmark_df[col2]):
             if standardize_format(m1) != 'skip' and standardize_format(m2) != 'skip':
                 xs.append(standardize_format(m1))
                 ys.append(standardize_format(m2))
@@ -81,52 +85,55 @@ class Data:
             stat = stats.spearmanr(xs, ys)
         elif metric == 'kendalltau':
             stat = stats.kendalltau(xs, ys)
-
+            
         return round(stat.statistic, 5)        
         # print(f'Correlation using metric {metric}: {round(stat.statistic, 5)}')
 
-    def get_correlation_table(self, metric='pearson', ignored_columns=[], abs=False):
-        correlations_df = self.df.drop(columns=ignored_columns, inplace=False)
+    def get_correlation_table(self, benchmark, metric='pearson', ignored_columns=[], abs=False):
+        benchmark_index = self.df[self.df['benchmark'] == benchmark].index
+        benchmark_df = pd.DataFrame(self.df, columns=self.df.columns, index=benchmark_index)    
+        correlations_df = benchmark_df.drop(columns=ignored_columns, inplace=False)
         for col1 in correlations_df.columns:
             if col1 not in ignored_columns:
                 self.table['column'] = [col2 for col2 in correlations_df.columns]
             if abs:
-                self.table[col1] = map(np.abs, [self.get_correlations(col1, col2, metric=metric) for col2 in correlations_df.columns])
+                self.table[col1] = map(np.abs, [self.get_correlations(benchmark, col1, col2, metric=metric) for col2 in correlations_df.columns])
             else:
-                self.table[col1] = [self.get_correlations(col1, col2, metric=metric) for col2 in correlations_df.columns]
+                self.table[col1] = [self.get_correlations(benchmark, col1, col2, metric=metric) for col2 in correlations_df.columns]
         table_df = pd.DataFrame(data=self.table, columns=correlations_df.columns, index=self.table['column'])
         return table_df
     
-    def get_heatmap(self, ignored_columns, metric='pearson', abs=False):
+    def get_heatmap(self, benchmark, ignored_columns, metric='pearson', abs=False):
         heatmap_dims = (10, 10)
         fig, ax = plt.subplots(figsize=heatmap_dims)
-        table_df = self.get_correlation_table(metric=metric, ignored_columns=ignored_columns, abs=abs)
+        table_df = self.get_correlation_table(benchmark, metric=metric, ignored_columns=ignored_columns, abs=abs)
         heatmap = sns.heatmap(table_df, ax=ax, robust=True, annot=True)
         plt.xticks(rotation=30)
+        plt.yticks(rotation=0)
         if abs:
-            plt.title(f"Magnitude of Pearson Coefficients for Experiment '{self.data_id}'\n")
+            plt.title(f"Magnitude of {metric.capitalize()} Coefficients for Benchmark '{benchmark}' in Experiment '{self.data_id}'\n")
         else:
-            plt.title(f"Pearson Coefficients for Experiment '{self.data_id}'\n")
+            plt.title(f"{metric.capitalize()} Coefficients for Benchmark '{benchmark}' in Experiment '{self.data_id}'\n")
         fig = heatmap.get_figure()
         make_dir('./heatmaps')
         if abs:
-            fig.savefig(f'./heatmaps/{self.data_id}_abs_{metric}_correlations.png')
+            fig.savefig(f'./heatmaps/{self.data_id}_{benchmark}_abs_{metric}_correlations.png')
         else:
-            fig.savefig(f'./heatmaps/{self.data_id}_{metric}_correlations.png')
+            fig.savefig(f'./heatmaps/{self.data_id}_{benchmark}_{metric}_correlations.png')
 
-        print("Heatmap saved.")
+        print(f"Heatmap for benchmark '{benchmark}' saved.")
 
 def main(args):
     data_file = args.f
     metric = args.m
-    data_id = data_file[10:20]
+    data_id = data_file[-17:-7]
     with open(data_file, 'rb') as handle:
         data = pickle.load(handle)
         df = pd.DataFrame(data)
-    with open(f'./data/successes_{data_id}.pickle', 'rb') as handle:
-        successes = pickle.load(handle)
-        print(f'Benchmarks: {len(successes)}')
-        print(f'Successes: {sum(successes)}')
+    # with open(f'./data/successes_{data_id}.pickle', 'rb') as handle:
+    #     successes = pickle.load(handle)
+    #     print(f'Benchmarks: {len(successes)}')
+    #     print(f'Successes: {sum(successes)}')
     pd.set_option('display.max_columns', None)
     # remove RPS column
     df.columns = ['timestamp',
@@ -145,11 +152,13 @@ def main(args):
                               'avg_mem_free',
                               'avg_net_transmit (bps)', 'avg_net_receive (bps)']
     df['rps_delta'] = compute_rps_deltas(df['rps_real'], df['rps_target'])
-    folder = './data-analysis'
+    folder = args.d
+    benchmark = args.b
     make_dir(folder)
     df.to_csv(f"{folder}/data_{data_id}.csv", columns=df.columns)
     data_object = Data(df, data_id)
     data_object.get_cleaned_data(folder)
+    df.to_pickle(f"{folder}/data_{data_id}.pickle")
 
     ignored_columns = ['timestamp', 
                        'benchmark', 
@@ -159,13 +168,18 @@ def main(args):
                        'avg_cpu_system',
                         'avg_mem_free',
                         'avg_net_transmit (bps)', 
-                        'avg_net_receive (bps)']
+                        'avg_net_receive (bps)',
+                        'issued',
+                        'duration',
+                        'completed']
 
-    data_object.get_heatmap(ignored_columns=ignored_columns, metric=metric, abs=args.a)
+    data_object.get_heatmap(benchmark, ignored_columns=ignored_columns, metric=metric, abs=args.a)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--f')
+    parser.add_argument('-b')
+    parser.add_argument('--d', default='./data-analysis')
     parser.add_argument('-m', default='pearson')
     parser.add_argument('-a', action='store_true')
     args = parser.parse_args()
