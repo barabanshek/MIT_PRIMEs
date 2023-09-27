@@ -4,10 +4,11 @@ import pickle
 from data_processing import Data, compute_rps_deltas
 
 def main(args):
+    benchmark = args.b
     data_file = args.f
     xlabel = args.x
     ylabel = args.y
-    data_id = data_file[10:20]
+    data_id = data_file[-17:-7]
     # Load pickle file
     with open(data_file, 'rb') as handle:
         data = pickle.load(handle)
@@ -31,21 +32,22 @@ def main(args):
     folder = './data-plots'
     data_object = Data(df, data_id)
 
-    pearson = data_object.get_correlations(xlabel, ylabel, metric='pearson')
+    pearson = data_object.get_correlations(benchmark, xlabel, ylabel, metric='pearson')
 
     if args.c:
         cleaned = 'cleaned'
         data_object.get_cleaned_data()
     else:
         cleaned = 'not cleaned'
-    plot_title = f"{ylabel} vs. {xlabel} ({cleaned})\nr={pearson}"
-    data_object.plot_data(xlabel, ylabel, folder, title=plot_title)
+    plot_title = f"{ylabel} vs. {xlabel} for benchmark '{benchmark}' ({cleaned})\nr={pearson}"
+    data_object.plot_data(benchmark, xlabel, ylabel, folder, title=plot_title)
 
     print(f'Pearson coefficient: {pearson}')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--f')
+    parser.add_argument('-b')
     parser.add_argument('-x')
     parser.add_argument('-y')
     parser.add_argument('-c', action='store_true')
