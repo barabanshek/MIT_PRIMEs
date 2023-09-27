@@ -9,6 +9,7 @@ import numpy as np
 import string
 import os
 
+from data_processing import make_dir
 from multiprocessing import Process, Array, Lock, Manager
 from subprocess import run
 from yaml.loader import SafeLoader
@@ -59,22 +60,25 @@ def delete_files_in_directory(directory_path):
 
 class DataCollect:
 
-    def __init__(self, data, current_benchmarks, success_count, args, verbose=False):
+    def __init__(self, data, current_benchmarks, success_count, args=None, verbose=False):
         self.data = data
         self.current_benchmarks = current_benchmarks
         self.lock = Lock()
         self.verbose = verbose
         self.success_count = success_count
         self.rand_string = ''.join(random.choices(string.ascii_lowercase, k=10))
-        with open(args.config, 'r') as f:
-            json_data = json.load(f)
-            json_data['total_duration'] = args.t
-            json_data['workload_interval'] = args.d
-        config_folder = './experiment-configs'
-        config_filename = f'{config_folder}/{self.rand_string}_configs.json'
-        with open(config_filename, 'w') as f:
-            json.dump(json_data, f)
-            print(f'[INFO] Saved configs in {config_filename}')
+        if args != None:
+            # Save experiment configs.
+            with open(args.config, 'r') as f:
+                json_data = json.load(f)
+                json_data['total_duration'] = args.t
+                json_data['workload_interval'] = args.d
+            config_folder = './experiment-configs'
+            make_dir(config_folder)
+            config_filename = f'{config_folder}/{self.rand_string}_configs.json'
+            with open(config_filename, 'w') as f:
+                json.dump(json_data, f)
+                print(f'[INFO] Saved configs in {config_filename}')
 
     # Check if the services for a benchmark have already been deployed.
     def benchmark_already_deployed(self, benchmark_name):
@@ -92,13 +96,19 @@ class DataCollect:
         return workload
 
     # Save the current data to a pickle file.
-    def save_data(self):
-        # Dump data in pickle file.
-        data_filename = f'./data/data_{self.rand_string}.pickle'
+    def save_data(self, folder=None, file=None):
+        make_dir('./data')
+        if file == None or folder == None:
+            # Dump data in pickle file.
+            folder = './data'
+            data_filename = f'./data/data_{self.rand_string}.pickle'
+        else:
+            make_dir(folder)
+            data_filename = f'{folder}/{file}'
         with open(data_filename, 'wb') as handle:
             pickle.dump(list(self.data), handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"[SAVE] Data saved in {data_filename}.")
-        with open(f'./data/successes_{self.rand_string}.pickle', 'wb') as handle:
+        with open(f'{folder}/successes_{self.rand_string}.pickle', 'wb') as handle:
             pickle.dump(list(self.success_count), handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     # Delete latency files.
@@ -158,19 +168,25 @@ class DataCollect:
 
     # Setup the benchmark, invoke, print stats, and delete service.
     # This function will be multithreaded to run several benchmarks concurrently.
-    def run_service(self, env, benchmark_name, deployments, services, entry_service, rps, duration, max_retries=5, delay_time=2, num_metrics=2):
+    def run_service(self, env, benchmark_name, deployments, services, entry_service, rps, duration, max_retries=5, delay_time=2, num_metrics=2, timeout=60):
         # Check if the benchmark already exists. If not, deploy. If so, skip deployment.
         # Check if benchmark setup is successful. If not, attempt to delete existing deployments.
         # TODO: deploy only the services that the benchmark is missing. For example, if streaming and decoder are ready, deploy recog only.
-        if not env.setup_functions(deployments, services):
+        if not env.setup_functions(deployments, services, timeout=timeout):
             env.delete_functions(services)
             self.current_benchmarks[benchmark_name] = 0
             print(f"[ERROR] Benchmark `{benchmark_name}` setup failed, please read error message and try again.")
             self.success_count.append(0)
             return 0
         # Invoke.
-        (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
-            env.invoke_service(entry_service, duration, rps)
+        try:
+            (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
+                env.invoke_service(entry_service, duration, rps)
+        except Exception as e:
+            print(f'[ERROR] Error encountered when invoking {benchmark_name}.')
+            print(f'[ERROR] Error message: {e}')
+            self.success_count.append(0)
+            return
         # Get timestamp.
         timestamp = time.time()
         # Get scales and resource utils.
@@ -225,7 +241,16 @@ class DataCollect:
             return
         
         # Sample env.
-        env_state = env.sample_env(duration)
+        #TODO: add env sample retry
+        try:
+            env_state = env.sample_env(duration)
+        except Exception as e:
+            env.delete_functions(services)
+            print(f'[ERROR] Error encountered when sampling env for {benchmark_name}.')
+            print(f'[ERROR] Error message: {e}')
+            self.success_count.append(0)
+            return
+
 
         # Print statistics.
         lat_stat.sort()
@@ -325,7 +350,7 @@ def main(args):
         while time.time() - t_start < int(args.t):
             # Generate a list of random (benchmark, rps, duration) values
             dc.save_data()
-            dc.delete_latency_files()
+            # dc.delete_latency_files()
             workload = dc.generate_workload(benchmarks)
 
             for benchmark, rps, duration in workload:
@@ -358,6 +383,7 @@ def main(args):
                     # List of manifests as dicts to be converted into new YAML file.
                     manifests = [new_dep, new_svc, new_hpa]
                     # Update file name
+                    make_dir('k8s-yamls/tmp')
                     file_name = f"k8s-yamls/tmp/{new_funct}.yaml"
                     # Dump manifests into new YAML file.
                     with open(file_name, 'x') as f:
