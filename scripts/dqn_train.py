@@ -8,7 +8,7 @@
 from dqn import *
 import csv
 
-BATCH_SIZE = 8
+BATCH_SIZE = 16
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.05
@@ -96,6 +96,10 @@ def optimize_model():
                                           batch.next_state)), device=device, dtype=torch.bool)
     non_final_next_states = torch.cat([s for s in batch.next_state
                                                 if s is not None])
+    state_batch = 0
+    action_batch = 0
+    reward_batch = 0
+    
     state_batch = torch.cat(batch.state)
     action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)

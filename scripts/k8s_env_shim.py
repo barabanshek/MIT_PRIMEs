@@ -105,13 +105,13 @@ class Env:
             deployment.scale_deployment(replicas)
             try:
                 if wait_to_scale:
-                    print(f"[RUNNING] Waiting for all replicas to scale")
+                    #print(f"[RUNNING] Waiting for all replicas to scale")
                     t_start = time.time()
                     while not deployment.is_ready():
                         continue
                     # Cancel the timer when the replicas are ready
                     signal.alarm(0)                
-                    print(f"[UPDATE] Deployment {deployment.deployment_name} successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
+                    #print(f"[UPDATE] Deployment {deployment.deployment_name} successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
             except:
                 assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
 
@@ -123,13 +123,13 @@ class Env:
             deployment.scale_pod(cpu, mem)
             try:
                 if wait_to_scale:
-                    print(f"[RUNNING] Waiting for all replicas to scale")
+                    #print(f"[RUNNING] Waiting for all replicas to scale")
                     t_start = time.time()
                     while not deployment.is_ready():
                         continue
                     # Cancel the timer when the replicas are ready
                     signal.alarm(0)                
-                    print(f"[UPDATE] Deployment {deployment.deployment_name} successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
+                    #print(f"[UPDATE] Deployment {deployment.deployment_name} successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
             except:
                 assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
     
