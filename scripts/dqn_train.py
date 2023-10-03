@@ -130,7 +130,7 @@ def main():
 
     with open("rl_stats.csv", "a", newline = '') as file:
                 writer = csv.writer(file)
-                writer.writerow(["action", "cpu_user", "mem_free", "cpu_limit", "mem_limit", "replicas", "reward"])
+                writer.writerow(["action", "cpu_user", "mem_free", "cpu_limit", "mem_limit", "replicas", "reward", "90_latency"])
                 file.close()
 
     if torch.cuda.is_available():
@@ -144,7 +144,7 @@ def main():
         state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
         for t in range(episodes_length):
             action = select_action(state)
-            tempstate, tempreward = env.step((int)(action.item()))
+            tempstate, tempreward, latency = env.step((int)(action.item()))
             reward = torch.tensor([tempreward], device=device)
 
             next_state = torch.tensor(tempstate, dtype=torch.float32, device=device).unsqueeze(0)
@@ -168,7 +168,7 @@ def main():
 
             with open("rl_stats.csv", "a", newline = '') as file:
                 writer = csv.writer(file)
-                writer.writerow([action, tempstate[0], tempstate[1], tempstate[2], tempstate[3], tempstate[4], tempreward])
+                writer.writerow([action, tempstate[0], tempstate[1], tempstate[2], tempstate[3], tempstate[4], tempreward, latency])
                 file.close()
 
     print('Complete')
