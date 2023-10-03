@@ -12,17 +12,21 @@ from setup_service import Service
 from setup_deployment import Deployment
 import numpy as np
 
+states = 4
+actions = 27
+
+
 class q_net:
     def __init__ (self):
-        #cpu rounded to 40m, mem rounded to nearest 100Mi, 625 states and actions
-        self.q_table = np.random.rand((25, 25, 25, 25))
-        self.counter = np.zeros((25, 25, 25, 25))
+        #cpu rounded to 40m, mem rounded to nearest 100Mi, 625 states and 27 actions per (+ / / -) actions
+        self.q_table = np.random.rand((25, 25, 27))
+        self.counter = np.zeros((25, 25, 27))
         self.epsilon = 0.1
 
     def updateQ(self, state, action, reward):
         self.q_table[state[0]][state[1]][action]=self.q_table[state[0]][state[1]][action]* self.counter[state[0]][state[1]][action]+reward
-        self.q_table[state[0]][state[1]][action] += 1
-        self.q_table[state[0]][state[1]][action]/=self.q_table[state[0]][state[1]][action]
+        self.counter[state[0]][state[1]][action] += 1
+        self.q_table[state[0]][state[1]][action]/=self.counter[state[0]][state[1]][action]
     
     def getaction(self, state):
         temp = np.random.random()

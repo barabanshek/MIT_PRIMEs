@@ -10,7 +10,6 @@ from setup_service import Service
 from setup_deployment import Deployment
 import random
 
-steptime = 5
 latencyqos = 400000
 
 def run_service(env, service, invoker_configs):
@@ -37,27 +36,28 @@ class RLEnv:
     states = {
         "cpu_user" : 0,
         "mem_free" : 0,
-        "90_latency" : 0,
-        "completion_rate" : 0,
         "cpu_limit" : 0,
-        "mem_limit" : 0
-    }
-
-    actions = {
-        "cpu" : 0,
-        "mem" : 0
+        "mem_limit" : 0,
+        "replicas" : 0
     }
 
     deployments = []
     services = []
 
+    cpu_step = 40
+    mem_step = 100
+    replicas_step = 1
+
+    functions = {}
+    rps = {}
+    durations = {}
     def __init__(self, config):
         self.states['cpu_limit'] = self.initial_cpu_limit
         self.states['memory_limit'] = self.initial_memory_limit
 
         with open(config, 'r') as f:
             json_data = json.load(f)
-
+        
         self.entry_point_function = json_data['entry-point']
         self.functions = json_data['functions']
         self.invoker_configs = json_data['invoker-configs']
@@ -89,23 +89,42 @@ class RLEnv:
             return 0
 
     def observestates(self, time): #currently for 1 machine
-        states = self.server.observestates(time)
-        self.states["cpu_user"] = states['1']["cpu"][1]
-        self.states["mem_free"] = states['1']["mem"]
+        state = self.server.observestates(time)
+        self.states["cpu_user"] = state['1']["cpu"][1]
+        self.states["mem_free"] = state['1']["mem"]
 
     def invokefunction(self, time, rps):
         entry_service = self.services[self.entry_point_function_index]
         complete_rate, latency = run_service(self.env, entry_service, {'duration' : time, "rps": rps})
-        self.states["90_latency"] = latency,
-        self.states["completion_rate"] = complete_rate
+        return latency, complete_rate
 
     def executeaction(self, action): #[cpu, mem]
-        self.server.scale_pods(self.deployments, str(action[0]) + "m", str(action[1]) + "Mi")
+        cpu = action%3
+        mem = (action//3) % 3
+        replica = (action//9)
+        self.states["cpu_limit"] += (cpu*self.cpu_step)
+        self.states["mem_limit"] += (mem*self.mem_step)
+        self.states["replicas"] += (replica*self.replicas_step)
+        self.server.scale_deployments(self.deployments, str(self.states["cpu_limit"]) + "m", str(self.states["mem_limit"]) + "Mi")
+        self.server.scale_pods(self.deployments, self.states["replicas"])
 
+    def reset(self): #default params
+        self.states["cpu_user"] = 0
+        self.states["mem_free"] = 0
+        self.states["cpu_limit"] = 100
+        self.states["mem_limit"] = 500
+        self.states["replicas"] = 1
+        self.server.scale_deployments(self.deployments, str(self.states["cpu_limit"]) + "m", str(self.states["mem_limit"]) + "Mi")
+        self.server.scale_pods(self.deployments, self.states["replicas"])
+        return list(self.states.values())
+    
     def step(self, action):
         self.executeaction(action)
         time = random.randint(10, 20)
-        self.invokefunction(time, random.randint(100, 400))
+        latency, complete_rate = self.invokefunction(time, random.randint(100, 400))
         self.observestates(time)
-        reward = self.states["cpu_user"]*100/self.states["cpu_limit"]+self.states["mem_free"]*1000000/self.states["mem_limit"]+(-self.states["90_latency"]/latencyqos + self.states["completion_rate"])
-        return self.states, reward
+        if latency>latencyqos:
+            reward = (complete_rate) + (self.states["cpu_user"]/self.states["cpu_limit"]) + ((1-self.states["mem_free"])/self.states["mem_limit"])-1
+        else:
+            reward = (complete_rate) + (self.states["cpu_user"]/self.states["cpu_limit"]) + ((1-self.states["mem_free"])/self.states["mem_limit"])+1
+        return list(self.states.values()), reward
