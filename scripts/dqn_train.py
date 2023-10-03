@@ -148,7 +148,7 @@ def main():
         state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
         for t in range(episodes_length):
             print("episode: " + str(i_episode))
-            print("step: " + str(episodes_length))
+            print("step: " + str(t))
             action = select_action(state)
             tempstate, tempreward, latency = env.step((int)(action.item()))
             reward = torch.tensor([tempreward], device=device)
