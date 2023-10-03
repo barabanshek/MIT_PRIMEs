@@ -52,8 +52,8 @@ class RLEnv:
     rps = {}
     durations = {}
     def __init__(self, config):
-        self.states['cpu_limit'] = self.initial_cpu_limit
-        self.states['memory_limit'] = self.initial_memory_limit
+        self.states['cpu_limit'] = self.initial_cpu_lim
+        self.states['memory_limit'] = self.initial_mem_lim
 
         with open(config, 'r') as f:
             json_data = json.load(f)
