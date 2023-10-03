@@ -87,7 +87,7 @@ class RLEnv:
             return 0
 
     def observestates(self, time): #currently for 1 machine
-        state = self.env.observestates(time)
+        state = self.env.sample_env(time)
         self.states["cpu_user"] = state['1']["cpu"][1]
         self.states["mem_free"] = state['1']["mem"]
 
