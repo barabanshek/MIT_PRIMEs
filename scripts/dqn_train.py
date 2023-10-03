@@ -174,3 +174,5 @@ def main():
     plot_durations(show_result=True)
     plt.ioff()
     plt.show()
+
+main()
