@@ -97,12 +97,21 @@ class RLEnv:
         return latency, complete_rate
 
     def executeaction(self, action): #[cpu, mem]
-        cpu = action%3
-        mem = (action//3) % 3
-        replica = (action//9)
+        cpu = action%3 - 1
+        mem = (action//3) % 3 - 1
+        replica = (action//9) - 1
         self.states["cpu_limit"] += (cpu*self.cpu_step)
         self.states["mem_limit"] += (mem*self.mem_step)
         self.states["replicas"] += (replica*self.replicas_step)
+        if self.states["cpu_limit"]<=0:
+            self.states["cpu_limit"] = 100 #default
+        
+        if self.states["mem_limit"]<=0:
+            self.states["mem_limit"] = 500 #default
+        
+        if self.states["replicas"]<=0:
+            self.states["replicas"] = 1 #default
+
         self.env.scale_pods(self.deployments, (str)(str(self.states["cpu_limit"]) + "m"), (str)(str(self.states["mem_limit"]) + "Mi"))
         self.env.scale_deployments(self.deployments, (int)(self.states["replicas"]))
 
@@ -122,7 +131,7 @@ class RLEnv:
         latency, complete_rate = self.invokefunction(time, random.randint(100, 400))
         self.observestates(time)
         if latency>latencyqos:
-            reward = (complete_rate) + (self.states["cpu_user"]/self.states["cpu_limit"]) + ((1-self.states["mem_free"])/self.states["mem_limit"])-1
+            reward = (complete_rate) + (self.states["cpu_user"]/self.states["cpu_limit"]) + ((1-self.states["mem_free"])/self.states["mem_limit"]) - self.states["replicas"] -1
         else:
-            reward = (complete_rate) + (self.states["cpu_user"]/self.states["cpu_limit"]) + ((1-self.states["mem_free"])/self.states["mem_limit"])+1
+            reward = (complete_rate) + (self.states["cpu_user"]/self.states["cpu_limit"]) + ((1-self.states["mem_free"])/self.states["mem_limit"]) - self.states["replicas"] + 1
         return list(self.states.values()), reward
