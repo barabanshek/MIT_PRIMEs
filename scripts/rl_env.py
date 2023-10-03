@@ -88,8 +88,8 @@ class RLEnv:
 
     def observestates(self, time): #currently for 1 machine
         state = self.env.sample_env(time)
-        self.states["cpu_user"] = state['1']["cpu"][1]
-        self.states["mem_free"] = state['1']["mem"]
+        self.states["cpu_user"] = state[1]["cpu"][1]
+        self.states["mem_free"] = state[1]["mem"]
 
     def invokefunction(self, time, rps):
         entry_service = self.services[self.entry_point_function_index]
