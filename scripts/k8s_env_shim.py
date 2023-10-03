@@ -148,7 +148,7 @@ class Env:
 
         # Setup hostname file
         os.system('''echo '[ { "hostname": "''' + ip + '''" } ]' > ''' + INVOKER_FILE + '''endpoints.json''')
-        print(f"[INFO] Hostname file has been set up at {INVOKER_FILE}/endpoints.json")
+        #print(f"[INFO] Hostname file has been set up at {INVOKER_FILE}/endpoints.json")
 
         # Format the invoker command nicely
         invoker_cmd_join_list = [f'{INVOKER_FILE}/invoker',
@@ -160,7 +160,7 @@ class Env:
         invoker_cmd = ' '.join(invoker_cmd_join_list)
 
         # Run invoker while redirecting output to separate file
-        print("[RUNNING] Invoking with command at second {}".format(time.time()), f'`{invoker_cmd}`\n')
+        #print("[RUNNING] Invoking with command at second {}".format(time.time()), f'`{invoker_cmd}`\n')
         
         self.invoker_start_time = time.time()
         stdout = os.popen(invoker_cmd)

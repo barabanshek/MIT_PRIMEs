@@ -62,7 +62,7 @@ class Deployment:
             body=self.deployment_object, namespace="default"
         )
 
-        print(f"\n[UPDATE] deployment `{self.deployment_name}` created.\n")
+        #print(f"\n[UPDATE] deployment `{self.deployment_name}` created.\n")
         return resp
     
     # Check if all pods are ready.
@@ -87,7 +87,7 @@ class Deployment:
             name=self.deployment_name, namespace=self.namespace, body=self.deployment_object
         )
 
-        print("\n[UPDATE] deployment's container replicas scaled.\n")
+        #print("\n[UPDATE] deployment's container replicas scaled.\n")
 
     def scale_pod(self, cpu, mem):
         # update the recommendations
@@ -98,7 +98,7 @@ class Deployment:
             self.deployment_object.spec.template.spec.containers[i].resources["requests"]["memory"] = mem
 
         resp = self.api.patch_namespaced_deployment(namespace=self.namespace, name=self.deployment_name, body=self.deployment_object)
-        print("\n[UPDATE] container verticle scaled.\n")
+        #print("\n[UPDATE] container verticle scaled.\n")
 
 
 
@@ -114,4 +114,4 @@ class Deployment:
                 propagation_policy="Foreground", grace_period_seconds=0
             ),
         )
-        print(f"\n[DELETED] deployment `{self.deployment_name}` deleted.")
+        #print(f"\n[DELETED] deployment `{self.deployment_name}` deleted.")
