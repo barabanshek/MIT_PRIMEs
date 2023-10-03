@@ -23,7 +23,7 @@ def run_service(env, service, invoker_configs):
     if lat_stat == []:
         lat_stat.append(latencyqos+1)
     
-    return (stat_issued/stat_completed,  lat_stat[(int)(len(lat_stat) * 0.90)])
+    return (stat_completed/stat_issued,  lat_stat[(int)(len(lat_stat) * 0.90)])
 
 
 class RLEnv:
