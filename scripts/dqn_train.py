@@ -129,7 +129,7 @@ def main():
 
     with open("rl_stats.csv", "a", newline = '') as file:
                 writer = csv.writer(file)
-                writer.writerow("action", "cpu_user", "mem_free", "cpu_limit", "mem_limit", "replicas", "reward")
+                writer.writerow(["action", "cpu_user", "mem_free", "cpu_limit", "mem_limit", "replicas", "reward"])
                 file.close()
 
     if torch.cuda.is_available():
@@ -167,7 +167,7 @@ def main():
 
             with open("rl_stats.csv", "a", newline = '') as file:
                 writer = csv.writer(file)
-                writer.writerow(action, tempstate[0], tempstate[1], tempstate[2], tempstate[3], tempstate[4], tempreward)
+                writer.writerow([action, tempstate[0], tempstate[1], tempstate[2], tempstate[3], tempstate[4], tempreward])
                 file.close()
 
     print('Complete')
