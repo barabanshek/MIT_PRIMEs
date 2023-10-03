@@ -21,8 +21,7 @@ def run_service(env, service, invoker_configs):
         env.invoke_service(service, duration, rps)
     lat_stat = env.get_latencies(stat_lat_filename)
     if lat_stat == []:
-        print("[ERROR] No responses were returned, no latency statistics is computed.")
-        return
+        lat_stat.append(latencyqos+1)
     
     return (stat_issued/stat_completed,  lat_stat[(int)(len(lat_stat) * 0.90)])
 
@@ -129,9 +128,7 @@ class RLEnv:
         self.executeaction(action)
         time = random.randint(10, 20)
         latency, complete_rate = self.invokefunction(time, random.randint(100, 400))
-        if latency == []:
-            latency.append(latencyqos+1)
-            
+
         self.observestates(time)
         if latency>latencyqos:
             reward = (complete_rate) + (self.states["cpu_user"]) + (1-self.states["mem_free"]) - self.states["replicas"] -1
