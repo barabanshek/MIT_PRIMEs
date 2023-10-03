@@ -46,7 +46,7 @@ def select_action(state):
             # t.max(1) will return the largest column value of each row.
             # second column on max result is index of where max element was
             # found, so we pick action with the larger expected reward.
-            return policy_net(state).max(1)[1].view(1, 1)
+            return policy_net(state).max(1)[1].view(1, 1)-1
     else:
         temp = random.randint(0,n_actions)
         return torch.tensor([[temp]], device=device, dtype=torch.long)
@@ -99,7 +99,7 @@ def optimize_model():
     state_batch = 0
     action_batch = 0
     reward_batch = 0
-    
+
     state_batch = torch.cat(batch.state)
     action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
