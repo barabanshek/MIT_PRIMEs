@@ -8,11 +8,11 @@
 from dqn import *
 import csv
 
-BATCH_SIZE = 16
+BATCH_SIZE = 2
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.05
-EPS_DECAY = 1000
+EPS_DECAY = 100
 TAU = 0.005
 LR = 1e-3
 # Get number of actions from gym action space
@@ -107,6 +107,8 @@ def optimize_model():
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken. These are the actions which would've been taken
     # for each batch state according to policy_net
+    print(state_batch)
+    print(action_batch)
     state_action_values = policy_net(state_batch).gather(1, action_batch)
 
     # Compute V(s_{t+1}) for all next states.
