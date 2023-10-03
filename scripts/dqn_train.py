@@ -110,7 +110,7 @@ def optimize_model():
     print(state_batch)
     print(action_batch)
     state_action_values = policy_net(state_batch).gather(1, action_batch)
-
+    print(state_action_values)
     # Compute V(s_{t+1}) for all next states.
     # Expected values of actions for non_final_next_states are computed based
     # on the "older" target_net; selecting their best reward with max(1)[0].
