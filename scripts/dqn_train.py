@@ -141,7 +141,7 @@ def main():
         # Initialize the environment and get it's state
         state = env.reset()
         state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
-        for t in episodes_length:
+        for t in range(episodes_length):
             action = select_action(state)
             tempstate, tempreward = env.step((int)(action.item()))
             reward = torch.tensor([tempreward], device=device)
