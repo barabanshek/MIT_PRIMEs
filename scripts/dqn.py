@@ -1,10 +1,8 @@
-import gymnasium as gym
 import math
 import random
 import matplotlib
 import matplotlib.pyplot as plt
 from collections import namedtuple, deque
-from itertools import count
 from rl_env import *
 
 import torch
