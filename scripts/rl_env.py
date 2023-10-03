@@ -112,8 +112,8 @@ class RLEnv:
         self.states["cpu_limit"] = 100
         self.states["mem_limit"] = 500
         self.states["replicas"] = 1
-        self.env.scale_deployments(self.deployments, str(self.states["cpu_limit"]) + "m", str(self.states["mem_limit"]) + "Mi")
-        self.env.scale_pods(self.deployments, self.states["replicas"])
+        self.env.scale_deployments(self.deployments, (str)(str(self.states["cpu_limit"]) + "m"), (str)(str(self.states["mem_limit"]) + "Mi"))
+        self.env.scale_pods(self.deployments, (int)(self.states["replicas"]))
         return list(self.states.values())
     
     def step(self, action):
