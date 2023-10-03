@@ -87,7 +87,7 @@ class RLEnv:
             return 0
 
     def observestates(self, time): #currently for 1 machine
-        state = self.server.observestates(time)
+        state = self.env.observestates(time)
         self.states["cpu_user"] = state['1']["cpu"][1]
         self.states["mem_free"] = state['1']["mem"]
 
@@ -103,8 +103,8 @@ class RLEnv:
         self.states["cpu_limit"] += (cpu*self.cpu_step)
         self.states["mem_limit"] += (mem*self.mem_step)
         self.states["replicas"] += (replica*self.replicas_step)
-        self.server.scale_deployments(self.deployments, str(self.states["cpu_limit"]) + "m", str(self.states["mem_limit"]) + "Mi")
-        self.server.scale_pods(self.deployments, self.states["replicas"])
+        self.env.scale_deployments(self.deployments, str(self.states["cpu_limit"]) + "m", str(self.states["mem_limit"]) + "Mi")
+        self.env.scale_pods(self.deployments, self.states["replicas"])
 
     def reset(self): #default params
         self.states["cpu_user"] = 0
@@ -112,8 +112,8 @@ class RLEnv:
         self.states["cpu_limit"] = 100
         self.states["mem_limit"] = 500
         self.states["replicas"] = 1
-        self.server.scale_deployments(self.deployments, str(self.states["cpu_limit"]) + "m", str(self.states["mem_limit"]) + "Mi")
-        self.server.scale_pods(self.deployments, self.states["replicas"])
+        self.env.scale_deployments(self.deployments, str(self.states["cpu_limit"]) + "m", str(self.states["mem_limit"]) + "Mi")
+        self.env.scale_pods(self.deployments, self.states["replicas"])
         return list(self.states.values())
     
     def step(self, action):
