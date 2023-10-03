@@ -129,6 +129,9 @@ class RLEnv:
         self.executeaction(action)
         time = random.randint(10, 20)
         latency, complete_rate = self.invokefunction(time, random.randint(100, 400))
+        if latency == []:
+            latency.append(latencyqos+1)
+            
         self.observestates(time)
         if latency>latencyqos:
             reward = (complete_rate) + (self.states["cpu_user"]) + (1-self.states["mem_free"]) - self.states["replicas"] -1

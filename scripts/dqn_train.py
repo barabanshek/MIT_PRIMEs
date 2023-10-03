@@ -8,7 +8,7 @@
 from dqn import *
 import csv
 
-BATCH_SIZE = 128
+BATCH_SIZE = 8
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.05
@@ -84,6 +84,7 @@ def optimize_model():
     if len(memory) < BATCH_SIZE:
         return
     transitions = memory.sample(BATCH_SIZE)
+    print("optimizing model..")
     # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
     # detailed explanation). This converts batch-array of Transitions
     # to Transition of batch-arrays.
