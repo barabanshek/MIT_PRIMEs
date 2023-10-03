@@ -8,7 +8,7 @@
 from dqn import *
 import csv
 
-BATCH_SIZE = 2
+BATCH_SIZE = 16
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.05
