@@ -31,8 +31,6 @@ class RLEnv:
     initial_cpu_lim = 1000 #milicores
     initial_mem_lim = 2000 #MiB
 
-    server = Env()
-
     states = {
         "cpu_user" : 0,
         "mem_free" : 0,
@@ -54,7 +52,7 @@ class RLEnv:
     def __init__(self, config):
         self.states['cpu_limit'] = self.initial_cpu_lim
         self.states['memory_limit'] = self.initial_mem_lim
-
+        self.env = Env()
         with open(config, 'r') as f:
             json_data = json.load(f)
         
