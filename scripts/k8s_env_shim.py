@@ -96,7 +96,7 @@ class Env:
         return 1
     
     # Scale number of replicas
-    def scale_deployments(self, deployments, replicas, wait_to_scale=True, timeout=60):
+    def scale_deployments(self, deployments, replicas, wait_to_scale=False, timeout=60):
 
         # Scale replicas
         for deployment in deployments:
