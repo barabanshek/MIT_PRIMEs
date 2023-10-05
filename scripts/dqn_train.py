@@ -31,7 +31,7 @@ target_net.load_state_dict(policy_net.state_dict())
 optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
 memory = ReplayMemory(10000)
 
-episodes_length = 60 #should be approximately 20 minute per episode
+episodes_length = 50
 
 steps_done = 0
 
@@ -134,7 +134,7 @@ def main():
 
     with open("rl_stats.csv", "a", newline = '') as file:
                 writer = csv.writer(file)
-                writer.writerow(["action", "cpu_user", "mem_free", "cpu_limit", "mem_limit", "replicas", "reward", "90_latency"])
+                writer.writerow(["episode", "action", "cpu_user", "mem_free", "cpu_limit", "mem_limit", "replicas", "reward", "90_latency"])
                 file.close()
 
     if torch.cuda.is_available():
@@ -146,11 +146,13 @@ def main():
         # Initialize the environment and get it's state
         state = env.reset()
         state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+        rps = random.randint(10, 250)
+        duration = random.randint(10,20)
         for t in range(episodes_length):
             print("episode: " + str(i_episode))
             print("step: " + str(t))
             action = select_action(state)
-            tempstate, tempreward, latency = env.step((int)(action.item()))
+            tempstate, tempreward, latency = env.step((int)(action.item()), duration, rps)
             reward = torch.tensor([tempreward], device=device)
 
             next_state = torch.tensor(tempstate, dtype=torch.float32, device=device).unsqueeze(0)
@@ -174,12 +176,13 @@ def main():
 
             with open("rl_stats.csv", "a", newline = '') as file:
                 writer = csv.writer(file)
-                writer.writerow([action, tempstate[0], tempstate[1], tempstate[2], tempstate[3], tempstate[4], tempreward, latency])
+                writer.writerow([i_episode, action, tempstate[0], tempstate[1], tempstate[2], tempstate[3], tempstate[4], tempreward, latency])
                 file.close()
 
     print('Complete')
     plot_durations(show_result=True)
     plt.ioff()
     plt.show()
+    torch.save(target_net, "/model")
 
 main()

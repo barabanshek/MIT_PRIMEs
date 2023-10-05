@@ -1,7 +1,7 @@
 from k8s_env_shim import Env
 import json
 import yaml
-
+import os
 
 from yaml.loader import SafeLoader
 from os import path
@@ -115,6 +115,7 @@ class RLEnv:
         self.env.scale_deployments(self.deployments, (int)(self.states["replicas"]))
 
     def reset(self): #default params
+        os.system("kubectl delete --all pods --force --grace-period=0") #not sure if necessary but
         self.states["cpu_user"] = 0
         self.states["mem_free"] = 0
         self.states["cpu_limit"] = 100
@@ -124,12 +125,12 @@ class RLEnv:
         self.env.scale_deployments(self.deployments, (int)(self.states["replicas"]))
         return list(self.states.values())
     
-    def step(self, action):
+    def step(self, action, rps, duration):
         self.executeaction(action)
-        time = random.randint(10, 20)
-        latency, complete_rate = self.invokefunction(time, random.randint(100, 400))
+        #time = random.randint(10, 20)
+        latency, complete_rate = self.invokefunction(duration, rps) #self.invokefunction(time, random.randint(100, 400))
 
-        self.observestates(time)
+        self.observestates(duration)
         if latency>latencyqos:
             reward = (complete_rate) + (self.states["cpu_user"]*100/self.states["cpu_limit"]) + (((1-self.states["mem_free"])*100)/self.states["mem_limit"]) - self.states["replicas"] -100
         else:
