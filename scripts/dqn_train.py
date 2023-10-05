@@ -178,6 +178,7 @@ def main():
                 writer = csv.writer(file)
                 writer.writerow([i_episode, action, tempstate[0], tempstate[1], tempstate[2], tempstate[3], tempstate[4], tempreward, latency])
                 file.close()
+        env.clean()
 
     print('Complete')
     plot_durations(show_result=True)
