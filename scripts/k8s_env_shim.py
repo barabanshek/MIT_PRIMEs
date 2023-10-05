@@ -65,7 +65,7 @@ class Env:
 
     # Create Deployments and Service.
     # timeout : timeout limit for each deployment
-    def setup_functions(self, deployments, services, wait_to_scale=True, timeout=60):
+    def setup_functions(self, deployments, services, wait_to_scale=False, timeout=60):
 
         # Create Deployments    
         for deployment, service in zip(deployments, services):
@@ -96,7 +96,7 @@ class Env:
         return 1
     
     # Scale number of replicas
-    def scale_deployments(self, deployments, replicas, wait_to_scale=False, timeout=60):
+    def scale_deployments(self, deployments, replicas, wait_to_scale=True, timeout=90):
 
         # Scale replicas
         for deployment in deployments:
@@ -115,7 +115,7 @@ class Env:
             except:
                 assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
 
-    def scale_pods(self, deployments, cpu, mem, wait_to_scale=False, timeout=60):
+    def scale_pods(self, deployments, cpu, mem, wait_to_scale=True, timeout=90):
         # Scale replicas
         for deployment in deployments:
             # Start the timer
