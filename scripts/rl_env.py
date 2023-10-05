@@ -113,9 +113,6 @@ class RLEnv:
 
         self.env.scale_pods(self.deployments, (str)(str(self.states["cpu_limit"]) + "m"), (str)(str(self.states["mem_limit"]) + "Mi"))
         self.env.scale_deployments(self.deployments, (int)(self.states["replicas"]))
-        
-    def clean(self):
-        os.system("kubectl delete --all pods --force --grace-period=0") #not sure if necessary but
 
     def reset(self): #default params
         self.states["cpu_user"] = 0
