@@ -131,7 +131,7 @@ class RLEnv:
 
         self.observestates(time)
         if latency>latencyqos:
-            reward = (complete_rate) + (self.states["cpu_user"]*100/self.states["cpu_limit"]) + (((1-self.states["mem_free"])*100)/self.states["mem_limit"]) - self.states["replicas"] -10
+            reward = (complete_rate) + (self.states["cpu_user"]*100/self.states["cpu_limit"]) + (((1-self.states["mem_free"])*100)/self.states["mem_limit"]) - self.states["replicas"] -100
         else:
             reward = (complete_rate) + (self.states["cpu_user"]*100/self.states["cpu_limit"]) + (((1-self.states["mem_free"])*100)/self.states["mem_limit"]) - self.states["replicas"]+1
         return list(self.states.values()), reward, latency
