@@ -110,6 +110,8 @@ class RLEnv:
         
         if self.states["replicas"]<=0:
             self.states["replicas"] = 1 #default
+        if self.states["replicas"]>=10:
+            self.states["replicas"] = 10 #overflow i think
 
         self.env.scale_pods(self.deployments, (str)(str(self.states["cpu_limit"]) + "m"), (str)(str(self.states["mem_limit"]) + "Mi"))
         self.env.scale_deployments(self.deployments, (int)(self.states["replicas"]))

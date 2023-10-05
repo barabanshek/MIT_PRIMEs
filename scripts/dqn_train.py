@@ -8,7 +8,7 @@
 from dqn import *
 import csv
 
-BATCH_SIZE = 16
+BATCH_SIZE = 4
 GAMMA = 0.99
 EPS_START = 0.5
 EPS_END = 0.05
@@ -31,7 +31,7 @@ target_net.load_state_dict(policy_net.state_dict())
 optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
 memory = ReplayMemory(10000)
 
-episodes_length = 50
+episodes_length = 24
 
 steps_done = 0
 
@@ -152,7 +152,7 @@ def main():
             print("episode: " + str(i_episode))
             print("step: " + str(t))
             action = select_action(state)
-            tempstate, tempreward, latency = env.step((int)(action.item()), duration, rps)
+            tempstate, tempreward, latency = env.step((int)(action.item()), rps, duration)
             reward = torch.tensor([tempreward], device=device)
 
             next_state = torch.tensor(tempstate, dtype=torch.float32, device=device).unsqueeze(0)
