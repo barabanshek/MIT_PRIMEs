@@ -31,7 +31,7 @@ target_net.load_state_dict(policy_net.state_dict())
 optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
 memory = ReplayMemory(10000)
 
-episodes_length = 24
+episodes_length = 24   
 
 steps_done = 0
 
@@ -134,7 +134,7 @@ def main():
 
     with open("rl_stats.csv", "a", newline = '') as file:
                 writer = csv.writer(file)
-                writer.writerow(["episode", "action", "cpu_user", "mem_free", "cpu_limit", "mem_limit", "replicas", "reward", "90_latency"])
+                writer.writerow(["episode", "rps", "duration", "action", "cpu_user", "mem_free", "cpu_limit", "mem_limit", "replicas", "reward", "90_latency"])
                 file.close()
 
     if torch.cuda.is_available():
@@ -176,7 +176,7 @@ def main():
 
             with open("rl_stats.csv", "a", newline = '') as file:
                 writer = csv.writer(file)
-                writer.writerow([i_episode, action, tempstate[0], tempstate[1], tempstate[2], tempstate[3], tempstate[4], tempreward, latency])
+                writer.writerow([i_episode, rps, duration, action, tempstate[0], tempstate[1], tempstate[2], tempstate[3], tempstate[4], tempreward, latency])
                 file.close()
 
     print('Complete')

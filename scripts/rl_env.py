@@ -110,8 +110,8 @@ class RLEnv:
         
         if self.states["replicas"]<=0:
             self.states["replicas"] = 1 #default
-        if self.states["replicas"]>=10:
-            self.states["replicas"] = 10 #overflow i think
+        if self.states["replicas"]>5:
+            self.states["replicas"] = 5 #overflow i think
 
         self.env.scale_pods(self.deployments, (str)(str(self.states["cpu_limit"]) + "m"), (str)(str(self.states["mem_limit"]) + "Mi"))
         self.env.scale_deployments(self.deployments, (int)(self.states["replicas"]))
@@ -133,7 +133,7 @@ class RLEnv:
 
         self.observestates(duration)
         if latency>latencyqos:
-            reward = (complete_rate) + (self.states["cpu_user"]*100/self.states["cpu_limit"]) + (((1-self.states["mem_free"])*100)/self.states["mem_limit"]) - self.states["replicas"] -100
+            reward = (complete_rate) + (self.states["cpu_user"]*1000/self.states["cpu_limit"]) + (((1-self.states["mem_free"])*625)/self.states["mem_limit"]) -10
         else:
-            reward = (complete_rate) + (self.states["cpu_user"]*100/self.states["cpu_limit"]) + (((1-self.states["mem_free"])*100)/self.states["mem_limit"]) - self.states["replicas"]+1
+            reward = (complete_rate) + (self.states["cpu_user"]*1000/self.states["cpu_limit"]) + (((1-self.states["mem_free"])*625)/self.states["mem_limit"])
         return list(self.states.values()), reward, latency
