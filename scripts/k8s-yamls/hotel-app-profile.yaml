@@ -15,6 +15,15 @@ spec:
       labels:
         app: hotel-app-profile
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                  - node-1.alan.ragger-pg0.utah.cloudlab.us
       containers:
         # Relay --------------
         - name: relay

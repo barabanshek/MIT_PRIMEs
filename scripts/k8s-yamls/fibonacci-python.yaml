@@ -15,6 +15,15 @@ spec:
       labels:
         app: fibonacci-python
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                  - node-1.alan.ragger-pg0.utah.cloudlab.us
       containers:
         - name: relay
           image: docker.io/vhiveease/relay:latest
