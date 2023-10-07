@@ -5,3 +5,11 @@ server_configs.json
 wandb/
 *.pickle
 *.xlsx
+experiment-configs/
+data-plots/
+data-analysis/
+expanded_data/
+expanded-data-analysis/
+export/
+heatmaps/
+__pycache__/
