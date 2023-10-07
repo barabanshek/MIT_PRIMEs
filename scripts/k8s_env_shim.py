@@ -100,26 +100,24 @@ class Env:
         return 1
     
     # Scale number of replicas
-    def scale_deployments(self, deployments, replicas, wait_to_scale=True, timeout=60):
+    def scale_deployments(self, deployment, replicas, wait_to_scale=True, timeout=120):
 
-        # Scale replicas
-        for deployment in deployments:
-            # Start the timer
-            signal.alarm(timeout)
-            deployment.scale_deployment(replicas)
-            try:
-                if wait_to_scale:
-                    if self.verbose:
-                        print(f"[RUNNING] Waiting for all replicas to scale")
-                    t_start = time.time()
-                    while not deployment.is_ready():
-                        continue
-                    # Cancel the timer when the replicas are ready
-                    signal.alarm(0)      
-                    if self.verbose:          
-                        print(f"[UPDATE] Deployment {deployment.deployment_name} successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
-            except:
-                assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
+        # Start the timer
+        signal.alarm(timeout)
+        deployment.scale_deployment(replicas)
+        try:
+            if wait_to_scale:
+                if self.verbose:
+                    print(f"[RUNNING] Waiting for all replicas to scale")
+                t_start = time.time()
+                while not deployment.is_ready():
+                    continue
+                # Cancel the timer when the replicas are ready
+                signal.alarm(0)      
+                if self.verbose:          
+                    print(f"[UPDATE] Deployment {deployment.deployment_name} successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
+        except:
+            assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
 
     # Delete functions when finished
     def delete_functions(self, services, deployments_only=False, deployments=None, wait_time=2):
