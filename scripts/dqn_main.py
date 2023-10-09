@@ -5,6 +5,7 @@ import math
 import random
 import matplotlib
 import matplotlib.pyplot as plt
+import wandb
 from collections import namedtuple, deque
 from itertools import count, product
 from multiprocessing import Process, Manager
@@ -241,6 +242,7 @@ def cleanup():
     print('Deleted all latency files.')
     
 def main(args):
+    # wandb.init(project='dqn-serverless')
     # Initialize Envs
     env_shim = Env(verbose=True)
     # Setup Prometheus and check if setup is successful.
@@ -300,6 +302,8 @@ def main(args):
             p.start()
         for proc in processes:
             proc.join()
+        for bm in bm_objects:
+            bm.update_replicas()
     
     # Sequential deployment until we debug parallel deployment.
     # services, deployments, slas, current_benchmarks = deploy_benchmarks_non_parallel(benchmarks, env_shim)
@@ -307,7 +311,7 @@ def main(args):
     k8s_env = KubernetesEnv(env_shim, bm_objects)
     timestep = int(args.t)
     # Action space is cartesian product of the three possible scaling decisions for three functions
-    action_space = ActionSpace(list(product([-1, 0, 1], repeat=3)))
+    action_space = ActionSpace(list(product([-1, 0, 1], repeat=len(bm_objects))))
     rl_env = RLEnv(action_space, k8s_env, timestep)
 
     # Get number of actions from action space
@@ -325,9 +329,9 @@ def main(args):
     memory = ReplayMemory(10000)
         
     if torch.cuda.is_available():
-        num_episodes = 100
+        num_episodes = 50
     else:
-        num_episodes = 100
+        num_episodes = 50
         
     for i_episode in range(num_episodes):
         # Initialize the environment and get its state
@@ -341,6 +345,14 @@ def main(args):
             observation, reward, terminated, truncated = rl_env.step(action.item())
             reward = torch.tensor([reward], device=device)
             done = terminated or truncated
+            rl_env.save_step(t+1, action.item())
+            cpu, mem_free, net_transmit, net_receive = observation
+            # wandb.log({"action" : action.item(),
+            #            "reward" : reward,
+            #            "cpu" : cpu,
+            #            "mem_free" : mem_free,
+            #            "net_transmit" : net_transmit,
+            #            "net_receive" : net_receive})
             
             if terminated:
                 next_state = None
@@ -368,10 +380,11 @@ def main(args):
                 episode_durations.append(t + 1)
                 plot_durations()
                 break
-            time.sleep(timestep)
-        print('Episode finished, cleaning up...')
-        cleanup()
-        time.sleep(5)
+            if t == 150:
+                plot_durations()
+                break
+        print('Episode finished.')
+        # cleanup()
       
 # print('Complete')
 # plot_durations(show_result=True)
