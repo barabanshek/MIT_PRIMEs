@@ -164,6 +164,9 @@ def main():
             print("episode: " + str(i_episode))
             print("step: " + str(t))
             action = select_action(state)
+            tempstate = 0
+            tempreward = 0
+            latency = 0
             for entrypoint in entrypoints:
                 tempstate, tempreward, latency = env.step((int)(action.item()), rps, duration, entrypoint)
             
