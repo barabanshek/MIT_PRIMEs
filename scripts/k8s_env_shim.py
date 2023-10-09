@@ -95,12 +95,12 @@ class Env:
                 assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
             # Create Service
             service.create_service()
-            if self.verbose:
+            if not self.verbose:
                 print(f"[INFO] Service can be invoked at IP: {service.get_service_ip()} at port {service.port}\n")
         return 1
     
     # Scale number of replicas
-    def scale_deployments(self, deployment, replicas, wait_to_scale=True, timeout=120):
+    def scale_deployments(self, deployment, replicas, wait_to_scale=True, timeout=30):
 
         # Start the timer
         signal.alarm(timeout)
@@ -139,7 +139,7 @@ class Env:
 
         # Setup hostname file
         os.system('''echo '[ { "hostname": "''' + ip + '''" } ]' > ''' + INVOKER_FILE + '''endpoints.json''')
-        if self.verbose:
+        if not self.verbose:
             print(f"[INFO] Hostname file has been set up at {INVOKER_FILE}/endpoints.json")
 
         # Format the invoker command nicely
@@ -153,7 +153,7 @@ class Env:
         invoker_cmd = ' '.join(invoker_cmd_join_list)
 
         # Run invoker while redirecting output to separate file
-        if self.verbose:
+        if not self.verbose:
             print("[RUNNING] Invoking with command at second {}".format(time.time()), f'`{invoker_cmd}`\n')
         
         self.invoker_start_time = time.time()
@@ -217,18 +217,32 @@ class Env:
 
             # Network-related metrics
             # Sum of the total network throughput for all devices, bps
-            network_rx_bps = (float)(p_metric.custom_query(
-                query=f'sum(rate(node_network_receive_bytes_total[{interval_sec}s]))')[0]['value'][1]) * 8
-            network_tx_bps = (float)(p_metric.custom_query(
-                query=f'sum(rate(node_network_transmit_bytes_total[{interval_sec}s]))')[0]['value'][1]) * 8
+
+            try:
+                network_rx_bps = (float)(p_metric.custom_query(
+                    query=f'sum(rate(node_network_receive_bytes_total[{interval_sec}s]))')[0]['value'][1]) * 8
+            except:
+                assert False
+            try:
+                network_tx_bps = (float)(p_metric.custom_query(
+                    query=f'sum(rate(node_network_transmit_bytes_total[{interval_sec}s]))')[0]['value'][1]) * 8
+            except:
+                assert False
             #
             tpl['net'] = [network_tx_bps, network_rx_bps]
-
+            
             # Memory-related metrics
             # Free memory, Bytes
             # import pdb; pdb.set_trace()
-            mem_free = p_metric.custom_query(
-                query=f'node_memory_MemAvailable_bytes[{interval_sec}s]')[0]['values']
+            mem_query = p_metric.custom_query(
+            query=f'node_memory_MemAvailable_bytes[{interval_sec}s]')
+            if 'value' in mem_query[0]:
+                assert False
+            try:
+                mem_free = mem_query[0]['values']
+            except:
+                assert False
+
             mem_free = np.array([(int)(val) for (_, val) in mem_free])
             mem_free_avg = np.average(mem_free)
 
