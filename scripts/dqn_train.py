@@ -10,7 +10,7 @@ import csv
 
 BATCH_SIZE = 4
 GAMMA = 0.99
-EPS_START = 0.5
+EPS_START = 0.99
 EPS_END = 0.05
 EPS_DECAY = 100
 TAU = 0.005
@@ -34,6 +34,17 @@ memory = ReplayMemory(10000)
 episodes_length = 24   
 
 steps_done = 0
+
+invoker_configs = {}
+benchmarks = 0
+
+def invoker_stats():
+    with open("configs.json", 'r')  as f:
+        json_data = json.load(f)
+    benchmarks_ = json_data["benchmarks"]
+    for benchmark in benchmarks_:
+        benchmarks += 1
+        invoker_configs.update({benchmark["entrypoint"] : benchmark["invoker-configs"]})
 
 def select_action(state):
     global steps_done
@@ -183,6 +194,6 @@ def main():
     plot_durations(show_result=True)
     plt.ioff()
     plt.show()
-    torch.save(target_net, "/model")
+    torch.save(target_net, "model/model.pth")
 
 main()

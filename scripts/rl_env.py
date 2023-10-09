@@ -55,24 +55,36 @@ class RLEnv:
         with open(config, 'r') as f:
             json_data = json.load(f)
         
-        self.entry_point_function = json_data['entry-point']
-        self.functions = json_data['functions']
-        self.invoker_configs = json_data['invoker-configs']
-        self.entry_point_function_index = self.functions.index(self.entry_point_function)
+        benchmarks = json_data['benchmarks']
 
-        # Load YAML files as JSON-formatted dictionaries
-        for function in self.functions:
-            # Instantiate Deployment objects
-            file_name = f"k8s-yamls/{function}.yaml"
-            with open(path.join(path.dirname(__file__), file_name)) as f:
-                dep, svc = yaml.load_all(f, Loader=SafeLoader)
-            deployment = Deployment(dep, self.env.api)
-            self.deployments.append(deployment)
+        self.entry_point_function = []
+        self.functions = []
+        self.entry_point_function_index = {}
 
-            # Instantiate Service objects
-            port = svc['spec']['ports'][0]['port']
-            service = Service(function, file_name, port)
-            self.services.append(service)
+        self.deployments = []
+        self.services = []
+        index = 0
+        for benchmark in benchmarks:
+            # Read configs for benchmark
+            self.functions.append(benchmark['name'])
+            self.entry_point_function.append(benchmark['entry-point'])
+            functions = benchmark['functions']
+            self.entry_point_function_index.update({benchmark['entry-point']: index})
+
+            for function in functions:
+                # Instantiate Deployment objects
+                file_name = f"k8s-yamls/{function}.yaml"
+                with open(path.join(path.dirname(__file__), file_name)) as f:
+                    dep, svc = yaml.load_all(f, Loader=SafeLoader)
+                deployment = Deployment(dep, self.env.api)
+                self.deployments.append(deployment)
+
+                # Instantiate Service objects
+                port = svc['spec']['ports'][0]['port']
+                service = Service(function, file_name, port)
+                self.services.append(service)
+            
+            index += 1
 
         # Check if Prometheus setup is successful.
         if not self.env.setup_prometheus():
@@ -90,8 +102,8 @@ class RLEnv:
         self.states["cpu_user"] = state[1]["cpu"][1]
         self.states["mem_free"] = state[1]["mem"]
 
-    def invokefunction(self, time, rps):
-        entry_service = self.services[self.entry_point_function_index]
+    def invokefunction(self, time, rps, entrypoint):
+        entry_service = self.services[self.entry_point_function_index[entrypoint]]
         complete_rate, latency = run_service(self.env, entry_service, {'duration' : time, "rps": rps})
         return latency, complete_rate
 
@@ -133,7 +145,7 @@ class RLEnv:
 
         self.observestates(duration)
         if latency>latencyqos:
-            reward = (complete_rate) + (self.states["cpu_user"]*1000/self.states["cpu_limit"]) + (((1-self.states["mem_free"])*625)/self.states["mem_limit"]) -10
+            reward = -10
         else:
-            reward = (complete_rate) + (self.states["cpu_user"]*1000/self.states["cpu_limit"]) + (((1-self.states["mem_free"])*625)/self.states["mem_limit"])
+            reward = 5*((complete_rate) + (1-latency/latencyqos)) + 10*((self.states["cpu_user"]*10000/self.states["cpu_limit"]) + (((1-self.states["mem_free"])*625)/self.states["mem_limit"]))
         return list(self.states.values()), reward, latency
