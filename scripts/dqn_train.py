@@ -37,12 +37,13 @@ steps_done = 0
 
 invoker_configs = {}
 benchmarks = 0
-
+entrypoints = []
 def invoker_stats():
     with open("configs.json", 'r')  as f:
         json_data = json.load(f)
     benchmarks_ = json_data["benchmarks"]
     for benchmark in benchmarks_:
+        entrypoints.append()
         benchmarks += 1
         invoker_configs.update({benchmark["entrypoint"] : benchmark["invoker-configs"]})
 
@@ -163,7 +164,9 @@ def main():
             print("episode: " + str(i_episode))
             print("step: " + str(t))
             action = select_action(state)
-            tempstate, tempreward, latency = env.step((int)(action.item()), rps, duration)
+            for entrypoint in entrypoints:
+                tempstate, tempreward, latency = env.step((int)(action.item()), rps, duration, entrypoint)
+            
             reward = torch.tensor([tempreward], device=device)
 
             next_state = torch.tensor(tempstate, dtype=torch.float32, device=device).unsqueeze(0)

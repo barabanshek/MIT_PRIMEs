@@ -138,10 +138,10 @@ class RLEnv:
         self.env.scale_deployments(self.deployments, (int)(self.states["replicas"]))
         return list(self.states.values())
     
-    def step(self, action, rps, duration):
+    def step(self, action, rps, duration, entrypoint):
         self.executeaction(action)
         #time = random.randint(10, 20)
-        latency, complete_rate = self.invokefunction(duration, rps) #self.invokefunction(time, random.randint(100, 400))
+        latency, complete_rate = self.invokefunction(duration, rps, entrypoint) #self.invokefunction(time, random.randint(100, 400))
 
         self.observestates(duration)
         if latency>latencyqos:
