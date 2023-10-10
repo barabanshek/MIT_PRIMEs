@@ -83,7 +83,7 @@ BATCH_SIZE = 8
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.05
-EPS_DECAY = 1000
+EPS_DECAY = 150
 TAU = 0.005
 LR = 1e-4
 
@@ -92,6 +92,7 @@ steps_done = 0
 def select_action(state, policy_net, rl_env):
     global steps_done
     sample = random.random()
+    # Desmos format: 0.05+(0.9-0.05)*e^{(-1*x/1000)}
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
         math.exp(-1. * steps_done / EPS_DECAY)
     steps_done += 1
@@ -329,9 +330,9 @@ def main(args):
     memory = ReplayMemory(10000)
         
     if torch.cuda.is_available():
-        num_episodes = 50
+        num_episodes = 1
     else:
-        num_episodes = 50
+        num_episodes = 1
         
     for i_episode in range(num_episodes):
         # Initialize the environment and get its state
@@ -342,11 +343,11 @@ def main(args):
         for t in count():
             # action is of the form tensor[[action_i]]
             action = select_action(state, policy_net, rl_env)
-            observation, reward, terminated, truncated = rl_env.step(action.item())
+            observation, reward, terminated, truncated, lats = rl_env.step(action.item())
             reward = torch.tensor([reward], device=device)
             done = terminated or truncated
-            rl_env.save_step(t+1, action.item())
-            cpu, mem_free, net_transmit, net_receive = observation
+            rl_env.save_step(t+1, action.item(), lats)
+            # cpu, mem_free, net_transmit, net_receive, n_containers = observation
             # wandb.log({"action" : action.item(),
             #            "reward" : reward,
             #            "cpu" : cpu,
@@ -380,11 +381,11 @@ def main(args):
                 episode_durations.append(t + 1)
                 plot_durations()
                 break
-            if t == 150:
+            if t == 149:
                 plot_durations()
                 break
         print('Episode finished.')
-        # cleanup()
+        cleanup()
       
 # print('Complete')
 # plot_durations(show_result=True)
