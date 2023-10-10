@@ -88,7 +88,7 @@ class RLEnv():
         self.state = self.compute_state()
         # Scale all functions to 1.
         for benchmark in self.k8s_env.benchmarks:
-            self.k8s_env.scale_with_action(-200, benchmark)
+            self.k8s_env.scale_with_action(1, benchmark)
         # self.reward = compute_reward(self.k8s_env.get_lats(self.t))
         self.reward = 0
         self.terminated = False
