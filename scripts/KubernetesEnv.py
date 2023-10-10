@@ -121,14 +121,12 @@ class KubernetesEnv():
             print('    99.9th: ', lat_999/1000, 'ms')
         lats[benchmark.name] = (lat_50, lat_90, lat_99, lat_999)
         
-    # Update each deployment with the corresponding action.
-    # For example, if `deployments`=(fibonacci, hotel-app-geo) and `actions`=(1, -1)
-    # then fibonacci will be scaled up by 1 and hotel-app-geo will be scaled down by 1.
-    def scale_with_action(self, action, benchmark, timeout=60):
+    # Update each deployment with the corresponding desired replica count.
+    def scale_with_action(self, desired, benchmark, timeout=60):
         # Get current replicas
         curr_replicas = benchmark.replicas
         # Update replica count
-        target_replicas = max(1, curr_replicas + action)
+        target_replicas = desired
         # Define scale cmd.
         print(f'Scaling {benchmark.services[0].name} from {curr_replicas} to {target_replicas} replicas...')
         scale_cmd = f"kubectl scale deployment/{benchmark.services[0].name} --replicas={target_replicas}"
@@ -156,8 +154,8 @@ class KubernetesEnv():
             print(f'Scale attempt {c+1}:')
             try:
                 processes = []
-                for benchmark, action in zip(self.benchmarks, action_set):
-                    p = Process(target=self.scale_with_action, args=(action, benchmark))
+                for benchmark, desired in zip(self.benchmarks, updated_counts):
+                    p = Process(target=self.scale_with_action, args=(desired, benchmark))
                     processes.append(p)
                     p.start()
                 # Join processes.
