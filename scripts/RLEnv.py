@@ -77,7 +77,8 @@ class RLEnv():
                      'net_transmit' : [],
                      'net_receive': [],
                      'action' : [],
-                     'reward' : []}
+                     'reward' : [],
+                     'mean_latency' : []}
         for benchmark in self.k8s_env.benchmarks:
             self.data[f'replicas_{benchmark.name}'] = []
     
@@ -96,10 +97,11 @@ class RLEnv():
     
     def compute_state(self):
         cpu_idle, cpu_user, cpu_system, mem_free, net_transmit, net_receive = self.k8s_env.get_env_state(self.t)[0]
-        env_state = np.array([cpu_user, mem_free, net_transmit, net_receive])
+        num_containers = sum([benchmark.replicas for benchmark in self.k8s_env.benchmarks])
+        env_state = np.array([cpu_user, mem_free, net_transmit, net_receive, num_containers])
         return env_state
     
-    def save_step(self, step, action_i):
+    def save_step(self, step, action_i, lats):
         # Update data.
         self.data['step'].append(step) 
         self.data['cpu_util'].append(self.state[0])
@@ -108,6 +110,7 @@ class RLEnv():
         self.data['net_receive'].append(self.state[3])
         self.data['action'].append(self.action_space.actions[action_i])
         self.data['reward'].append(self.reward)
+        self.data['mean_latency'].append(np.mean(list(lats.values())))
         for benchmark in self.k8s_env.benchmarks:
             self.data[f'replicas_{benchmark.name}'].append(benchmark.replicas)
         # Save file.
@@ -153,6 +156,6 @@ class RLEnv():
         run('''find . -name 'rps*.csv' -delete''', shell=True)
         print('Deleted all latency files.')
         
-        return (self.state, self.reward, self.terminated, self.truncated)
+        return (self.state, self.reward, self.terminated, self.truncated, lats)
     
     
