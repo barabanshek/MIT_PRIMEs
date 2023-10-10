@@ -82,6 +82,12 @@ kInstallCmd_MasterSetupvSwarm = '''
     kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/database.yaml
     kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/memcached.yaml
 '''
+
+kInstallCmd_MasterPythonMLLibs = '''
+    sudo apt install python3-pip -y
+    pip install wandb numpy matplotlib seaborn pandas scipy kubernetes prometheus_api_client torch tqdm
+'''
+
 kInstallCmd_MetricsAPI = '''
     kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
     wget https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.5.0/components.yaml
@@ -128,7 +134,9 @@ scrape_configs:
 # serverless experiments.
 #
 class ServerlessDeployer:
-    def __init__(self, server_configs_json):
+    def __init__(self, server_configs_json, with_ml_libs=False):
+        self.install_ml_libs_ = with_ml_libs
+
         # Parse server configuration.
         with open(server_configs_json, 'r') as f:
             json_data = json.load(f)
@@ -308,6 +316,17 @@ class ServerlessDeployer:
             print("Error when installing vSwarm, try to do it manually")
 
         #
+        if self.install_ml_libs_:
+            print("Installing Python libs for ML/RL...")
+            _, stdout, stderr = self.ssh_clients_master_.exec_command(
+                kInstallCmd_MasterPythonMLLibs)
+            exit_status = stdout.channel.recv_exit_status()
+            if exit_status == 0:
+                print("ML libs are installed!")
+            else:
+                print("Error when installing ML libs, try to do it manually")
+
+        #
         print("Installing Prometheus on all nodes...")
         self.__execute_script_in_parallel([self.ssh_clients_master_] + self.ssh_clients_workers_,
                                           self.__install_prometheus)
@@ -329,13 +348,14 @@ class ServerlessDeployer:
 #    python3 setup_testbed.py --serverconfig server_configs.json .
 #
 def main(args):
-    deployer = ServerlessDeployer(args.serverconfig)
+    deployer = ServerlessDeployer(args.serverconfig, args.with_ml_libs)
     deployer.deploy()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--serverconfig')
+    parser.add_argument('--with_ml_libs')
     args = parser.parse_args()
 
     if args.serverconfig == None:
