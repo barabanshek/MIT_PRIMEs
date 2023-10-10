@@ -7,8 +7,8 @@ from subprocess import run
 from itertools import count
 # Register a handler for timeouts
 def timeout_handler(signum, frame):
-    raise Exception("[ERROR] timeout limit exceeded.\n")
-
+    raise TimeoutError("[ERROR] timeout limit exceeded.\n")
+    
 # Register signal function handler
 signal.signal(signal.SIGALRM, timeout_handler)
 
@@ -138,14 +138,18 @@ class KubernetesEnv():
             assert False, f"\n[ERROR] Failed to scale {benchmark.services[0].name} to {target_replicas} replicas.`\n[ERROR] Error message: {ret.stderr}"
         print(f'Waiting to scale deployment `{benchmark.services[0].name}`...')
         # Wait to scale.
-        while not benchmark.deployments[0].is_ready():
-            continue
+        try:
+            while not benchmark.deployments[0].is_ready():
+                continue
+            print(f'Deployment `{benchmark.services[0].name}` successfully scaled in {round(time.time() - start, 3)} seconds.\n')
+        except TimeoutError as exc:
+            print('{}: {}'.format(exc.__class__.__name__, exc))
+            assert False
         # Cancel the timer when the replicas are ready
         signal.alarm(0)      
-        print(f'Deployment `{benchmark.services[0].name}` successfully scaled in {round(time.time() - start, 3)} seconds.\n')
         
     # Take the action and get the latencies for a given time.
-    def evaluate_action(self, action_set, t):
+    def evaluate_action(self, action_set, t, cooldown=5):
         print(f'ACTION SET: {action_set}')
         updated_counts = [max(self.benchmarks[i].replicas + action_set[i], 1) for i in range(len(action_set))]
         print(f'PROPOSED REPLICAS: {updated_counts}\n')
@@ -172,8 +176,14 @@ class KubernetesEnv():
             benchmark.update_replicas()
         print('All deployments successfully scaled.\n')
         # Invoke in parallel
+        invoke_failures = 0
         for c in count():
             print(f'Invocation attempt {c+1}:')
+            # If 3 successive invocation failures are encountered, sleep for `cooldown` seconds.
+            if invoke_failures == 3:
+                print(f'Three successive invocation errors: cooling down for {cooldown} seconds...')
+                time.sleep(cooldown)
+                invoke_failures = 0
             try:
                 with Manager() as manager:
                     lats = manager.dict()
@@ -193,6 +203,7 @@ class KubernetesEnv():
                     print('>>> Invocation success.\n')
                     return lats
             except Exception as e:
+                invoke_failures += 1
                 print(f'Invocation error: {e}')
                 print('Invocation failed: retrying...')
 
