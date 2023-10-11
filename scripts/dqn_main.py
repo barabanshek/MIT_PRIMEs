@@ -30,7 +30,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-    
+
 plt.ion()
 
 # if GPU available, use GPU
@@ -232,18 +232,55 @@ def deploy_benchmarks_non_parallel(benchmarks, env):
     return (services, deployments, slas, current_benchmarks)
 
 # Cleanup functions when done.
-def cleanup():
+def cleanup(aggressive=False):
     run('''kubectl delete deployment --all''', shell=True)
     run('''kubectl delete service --all''', shell=True)
     run('''kubectl delete hpa --all''', shell=True)
+    if aggressive:
+        run('''kubectl delete pods --all --grace-period=0 --force''', shell=True)
     run('''kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/database.yaml''', shell=True)
     run('''kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/memcached.yaml''', shell=True)
     delete_files_in_directory('./k8s-yamls/tmp/')
     run('''find . -name 'rps*.csv' -delete''', shell=True)
     print('Deleted all latency files.')
-    
+
+# TODO (Nikita): this function still needs a lot of work.
+def wandb_log(log_data):
+    def truncate_name(name):
+        if "hotel-app-profile" in name:
+            return "hotel-app-profile"
+        if "hotel-app-geo" in name:
+            return "hotel-app-geo"
+        if "fibonacci-python" in name:
+            return "fibonacci-python"
+
+    lats_dict = dict(
+            (truncate_name(lat_f), {
+                '50th': lat_v[0],
+                '90th': lat_v[1],
+                '99th': lat_v[2],
+                '99.9th': lat_v[3],
+            }) for (lat_f, lat_v) in log_data['lats'].items()
+        )
+
+    wandb.log({
+        "reward": log_data['reward'],
+        "QoS": lats_dict,
+        "Observations": {
+            "cpu": log_data['observation:cpu'],
+            "mem_free": log_data['observation:mem_free'],
+            "net_transmit": log_data['observation:net_transmit'],
+            "net_receive": log_data['observation:net_receive'],
+        },
+        "Containers": {
+            "fn1": log_data['num_containers'][0],
+            "fn2": log_data['num_containers'][1],
+            "fn3": log_data['num_containers'][2]
+        }
+    })
+
 def main(args):
-    # wandb.init(project='dqn-serverless')
+    wandb.init(project='serverless-dqn')
     # Initialize Envs
     env_shim = Env(verbose=True)
     # Setup Prometheus and check if setup is successful.
@@ -308,7 +345,7 @@ def main(args):
     
     # Sequential deployment until we debug parallel deployment.
     # services, deployments, slas, current_benchmarks = deploy_benchmarks_non_parallel(benchmarks, env_shim)
-    
+
     k8s_env = KubernetesEnv(env_shim, bm_objects)
     timestep = int(args.t)
     # Action space is cartesian product of the three possible scaling decisions for three functions
@@ -347,14 +384,19 @@ def main(args):
             reward = torch.tensor([reward], device=device)
             done = terminated or truncated
             rl_env.save_step(t+1, action.item(), lats)
-            # cpu, mem_free, net_transmit, net_receive, n_containers = observation
-            # wandb.log({"action" : action.item(),
-            #            "reward" : reward,
-            #            "cpu" : cpu,
-            #            "mem_free" : mem_free,
-            #            "net_transmit" : net_transmit,
-            #            "net_receive" : net_receive})
-            
+            cpu, mem_free, net_transmit, net_receive, n_containers = observation
+
+            # Log things.
+            log_data = {}
+            log_data['reward'] = reward
+            log_data['lats'] = lats
+            log_data['observation:cpu'] = cpu
+            log_data['observation:mem_free'] = mem_free
+            log_data['observation:net_transmit'] = net_transmit
+            log_data['observation:net_receive'] = net_receive
+            log_data['num_containers'] = [benchmark.replicas for benchmark in k8s_env.benchmarks]
+            wandb_log(log_data)
+
             if terminated:
                 next_state = None
             else:
@@ -393,9 +435,15 @@ def main(args):
 # plt.savefig('dqn.png')
 # plt.show()
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
     # Config file for benchmarks
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--cleanup', action='store_true')
     parser.add_argument('--config')
     parser.add_argument('-t')
     args = parser.parse_args()
-    main(args)
+
+    if args.cleanup:
+        cleanup()
+        print("Cleaned-up, exiting now...")
+    else:
+        main(args)
