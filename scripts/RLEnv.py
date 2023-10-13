@@ -71,7 +71,8 @@ class RLEnv():
         self.k8s_env = k8s_env
         self.t = t
         self.rand_id = ''.join(random.choices(string.ascii_lowercase, k=6))
-        self.data = {'step' : [],
+        self.data = {'episode' : [],
+                     'step' : [],
                      'cpu_util' : [],
                      'mem_free' : [],
                      'net_transmit' : [],
@@ -82,15 +83,15 @@ class RLEnv():
         for benchmark in self.k8s_env.benchmarks:
             self.data[f'replicas_{benchmark.name}'] = []
     
-    #TODO: make reset delete the functions after collecting latencies
-    # either that or set reward to 0
-    # [Addressed]
+    # Reset the env state.
     def reset(self):
         self.state = self.compute_state()
-        # Scale all functions to 1.
-        for benchmark in self.k8s_env.benchmarks:
+        # Scale all functions to 1 and set their replica count to 1.
+        for idx, benchmark in enumerate(self.k8s_env.benchmarks):
             self.k8s_env.scale_with_action(1, benchmark)
-        # self.reward = compute_reward(self.k8s_env.get_lats(self.t))
+            # Update replica count.
+            benchmark.replicas = 1
+            self.k8s_env.benchmarks[idx] = benchmark
         self.reward = 0
         self.terminated = False
         return self.state
@@ -98,11 +99,13 @@ class RLEnv():
     def compute_state(self):
         cpu_idle, cpu_user, cpu_system, mem_free, net_transmit, net_receive = self.k8s_env.get_env_state(self.t)[0]
         num_containers = sum([benchmark.replicas for benchmark in self.k8s_env.benchmarks])
-        env_state = np.array([cpu_user, mem_free, net_transmit, net_receive, num_containers])
+        rps = self.k8s_env.benchmarks[0].rps
+        env_state = np.array([cpu_user, mem_free, net_transmit, net_receive, num_containers, rps])
         return env_state
     
-    def save_step(self, step, action_i, lats):
+    def save_step(self, i_episode, step, action_i, lats):
         # Update data.
+        self.data['episode'].append(i_episode)
         self.data['step'].append(step) 
         self.data['cpu_util'].append(self.state[0])
         self.data['mem_free'].append(self.state[1])
@@ -114,8 +117,9 @@ class RLEnv():
         for benchmark in self.k8s_env.benchmarks:
             self.data[f'replicas_{benchmark.name}'].append(benchmark.replicas)
         # Save file.
-        make_dir('./rl_data')
-        filename = f'./rl_data/run-{self.rand_id}.pickle'
+        foldername = f'./rl-data/'
+        make_dir(foldername)
+        filename = f'{foldername}/run-{self.rand_id}.pickle'
         with open(filename, 'wb') as handle:
             pickle.dump(self.data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'Data saved in {filename}.')
