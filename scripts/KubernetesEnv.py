@@ -46,6 +46,20 @@ def unpack_env_state(env_state):
         ret.append((cpu_idle, cpu_user, cpu_system, mem_free, net_transmit, net_receive))
     return ret
 
+# Check if QoS has been met for all benchmarks.
+# Returns a boolean.
+def qos_is_met(benchmarks, lats):
+    for benchmark in benchmarks:
+        benchmark_name = benchmark.name
+        sla_lats = benchmark.sla['lat']
+        actual_lats = lats[benchmark_name]
+        # Use 90th percentile for now.
+        sla_90 = sla_lats[1]
+        actual_90 = actual_lats[1]
+        if sla_90 < actual_90:
+            return False
+    return True
+
 class Benchmark():
     def __init__(self, name, deployments, services, entry_point_i, sla, rps_range):
         self.name = name
@@ -85,6 +99,7 @@ class KubernetesEnv():
     def __init__(self, env, benchmarks):
         self.env = env
         self.benchmarks = benchmarks
+        self.terminated = False
                     
     def get_env_state(self, t):
         try:
@@ -149,7 +164,7 @@ class KubernetesEnv():
         signal.alarm(0)      
         
     # Take the action and get the latencies for a given time.
-    def evaluate_action(self, action_set, t, cooldown=5):
+    def evaluate_action(self, action_set, t, cooldown=15):
         print(f'ACTION SET: {action_set}')
         updated_counts = [max(self.benchmarks[i].replicas + action_set[i], 1) for i in range(len(action_set))]
         print(f'PROPOSED REPLICAS: {updated_counts}\n')
@@ -179,11 +194,11 @@ class KubernetesEnv():
         invoke_failures = 0
         for c in count():
             print(f'Invocation attempt {c+1}:')
-            # If 3 successive invocation failures are encountered, sleep for `cooldown` seconds.
-            if invoke_failures == 3:
-                print(f'Three successive invocation errors: cooling down for {cooldown} seconds...')
-                time.sleep(cooldown)
-                invoke_failures = 0
+            # If N consecutive failures are encountered, sleep for (N/3 * cooldown) seconds.
+            if invoke_failures != 0 and invoke_failures % 3 == 0:
+                timeout = cooldown*invoke_failures/3
+                print(f'{invoke_failures} successive invocation errors: cooling down for {timeout} seconds...')
+                time.sleep(timeout)
             try:
                 with Manager() as manager:
                     lats = manager.dict()
@@ -201,6 +216,12 @@ class KubernetesEnv():
                         print('Invocation error: insufficient latencies.')
                         assert False
                     print('>>> Invocation success.\n')
+                    # Check if QoS has been met.
+                    self.terminated = qos_is_met(self.benchmarks, lats)
+                    if self.terminated:
+                        print("QoS is met, terminating this episode...\n")
+                    else:
+                        print("QoS not yet met...\n")
                     return lats
             except Exception as e:
                 invoke_failures += 1
@@ -209,7 +230,7 @@ class KubernetesEnv():
 
     # TODO: update
     def check_termination(self):
-        return False
+        return self.terminated
     
     # TODO: update
     def check_truncation(self):
