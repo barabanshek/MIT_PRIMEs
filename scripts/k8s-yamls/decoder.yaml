@@ -20,6 +20,13 @@ spec:
           image: docker.io/vhiveease/video-analytics-decoder:latest
           imagePullPolicy: Always
           args: ["-addr", "recog.default.svc.cluster.local:80"]
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "1024Mi"
+            limits:
+              cpu: "2000m"
+              memory: "1024Mi"
           env:
             - name: TRANSFER_TYPE
               value: "INLINE"
@@ -48,3 +55,28 @@ spec:
   ports:
   - port: 80
     targetPort: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: decoder-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: decoder
+  minReplicas: 1
+  maxReplicas: 100
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

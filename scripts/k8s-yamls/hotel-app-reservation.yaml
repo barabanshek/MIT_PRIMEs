@@ -29,6 +29,13 @@ spec:
             - --function-name=reservation
             - --function-method=CheckAvailability
             - --value=1
+          resources:
+            requests:
+              cpu: "60m"
+              memory: "64Mi"
+            limits:
+              cpu: "1000m"
+              memory: "8192Mi"
 
         # Function ------------
         - name: function
@@ -38,16 +45,48 @@ spec:
             - --port=8083
             - --db_addr=hotel-app-database:27017
             - --memcached_addr=hotel-app-mmc:11211
+          resources:
+            requests:
+              cpu: "60m"
+              memory: "64Mi"
+            limits:
+              cpu: "1000m"
+              memory: "8192Mi"
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: hotel-app-recommendation
+  name: hotel-app-reservation
   namespace: default
 spec:
   type: ClusterIP
   selector:
-    app: hotel-app-recommendation
+    app: hotel-app-reservation
   ports:
   - port: 50000
     targetPort: 50000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hotel-app-reservation-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hotel-app-reservation
+  minReplicas: 1
+  maxReplicas: 100
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

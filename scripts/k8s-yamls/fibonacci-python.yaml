@@ -15,6 +15,15 @@ spec:
       labels:
         app: fibonacci-python
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                  - node-1.alan.ragger-pg0.utah.cloudlab.us
       containers:
         - name: relay
           image: docker.io/vhiveease/relay:latest
@@ -30,11 +39,25 @@ spec:
             - --generator=linear
             - --lowerBound=1
             - --upperBound=10
+          resources:
+            requests:
+              cpu: "60m"
+              memory: "64Mi"
+            limits:
+              cpu: "1000m"
+              memory: "8192Mi"
         - name: fibonacci-python
           image: docker.io/vhiveease/fibonacci-python:latest
           args:
             - --addr=0.0.0.0
             - --port=50051
+          resources:
+            requests:
+              cpu: "60m"
+              memory: "64Mi"
+            limits:
+              cpu: "1000m"
+              memory: "8192Mi"
 ---
 apiVersion: v1
 kind: Service
@@ -48,3 +71,28 @@ spec:
   ports:
   - port: 50000
     targetPort: 50000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: fibonacci-python-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: fibonacci-python
+  minReplicas: 1
+  maxReplicas: 100
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

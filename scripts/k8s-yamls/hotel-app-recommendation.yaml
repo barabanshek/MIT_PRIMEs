@@ -28,6 +28,13 @@ spec:
             - --function-endpoint-port=8083
             - --function-name=recommendation
             - --value="dis"
+          resources:
+            requests:
+              cpu: "60m"
+              memory: "64Mi"
+            limits:
+              cpu: "1000m"
+              memory: "8192Mi"
 
         # Function ------------
         - name: function
@@ -36,6 +43,13 @@ spec:
             - --url=0.0.0.0
             - --port=8083
             - --db_addr=hotel-app-database:27017
+          resources:
+            requests:
+              cpu: "60m"
+              memory: "64Mi"
+            limits:
+              cpu: "1000m"
+              memory: "8192Mi"
 ---
 apiVersion: v1
 kind: Service
@@ -49,3 +63,28 @@ spec:
   ports:
   - port: 50000
     targetPort: 50000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hotel-app-recommendation-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hotel-app-recommendation
+  minReplicas: 1
+  maxReplicas: 100
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

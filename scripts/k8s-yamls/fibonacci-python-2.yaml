@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fibonacci-python-2
+  namespace: default
+  labels:
+    app: fibonacci-python-2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fibonacci-python-2
+  template:
+    metadata:
+      labels:
+        app: fibonacci-python-2
+    spec:
+      containers:
+        - name: relay
+          image: docker.io/vhiveease/relay:latest
+          ports:
+            - name: h2c
+              containerPort: 50000
+          args:
+            - --addr=0.0.0.0:50000
+            - --function-endpoint-url=0.0.0.0
+            - --function-endpoint-port=50051
+            - --function-name=fibonacci-python
+            - --value=10
+            - --generator=linear
+            - --lowerBound=1
+            - --upperBound=10
+          resources:
+            requests:
+              cpu: "60m"
+              memory: "64Mi"
+            limits:
+              cpu: "1000m"
+              memory: "8192Mi"
+        - name: fibonacci-python-2
+          image: docker.io/vhiveease/fibonacci-python:latest
+          args:
+            - --addr=0.0.0.0
+            - --port=50051
+          resources:
+            requests:
+              cpu: "60m"
+              memory: "64Mi"
+            limits:
+              cpu: "1000m"
+              memory: "8192Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fibonacci-python-2
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: fibonacci-python-2
+  ports:
+  - port: 50000
+    targetPort: 50000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: fibonacci-python-2-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: fibonacci-python-2
+  minReplicas: 1
+  maxReplicas: 100
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

@@ -19,7 +19,7 @@ def timeout_handler(signum, frame):
     raise Exception("[ERROR] timeout limit exceeded.\n")
 
 class Env:
-    def __init__(self):
+    def __init__(self, verbose=False):
         # Configs can be set in Configuration class directly or using helper
         # utility. If no argument provided, the config will be loaded from
         # default location.
@@ -30,6 +30,9 @@ class Env:
 
         # Initialize vars
         self.api = client.AppsV1Api()
+
+        # Verbosity
+        self.verbose = verbose
 
         # Some extra vars for later use
         self.total_mem_ = None
@@ -74,51 +77,57 @@ class Env:
             try:
                 deployment.create_deployment()
             except Exception as e:
-                print('\n[ERROR] Previous Deployments may still be deleting...')
+                # print('\n[ERROR] Previous Deployments may still be deleting...')
                 print(f'\n[ERROR] {e}')
                 return 0
             try:
                 if wait_to_scale:
-                    print(f"[RUNNING] Waiting for all pods in Deployment to be ready")
+                    if self.verbose:
+                        print(f"[RUNNING] Waiting for all pods in Deployment to be ready")
                     t_start = time.time()
                     while not deployment.is_ready():
                         continue
                     # Cancel the timer when the Deployment is ready
-                    signal.alarm(0)                
-                    print(f"[UPDATE] Deployment {deployment.deployment_name} successfully rolled out in {round(time.time() - t_start, 3)} seconds.\n")
+                    signal.alarm(0)   
+                    if self.verbose:             
+                        print(f"[UPDATE] Deployment {deployment.deployment_name} successfully rolled out in {round(time.time() - t_start, 3)} seconds.\n")
             except:
                 assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
-            
             # Create Service
             service.create_service()
-            print(f"[INFO] Service can be invoked at IP: {service.get_service_ip()} at port {service.port}\n")
-
+            if not self.verbose:
+                print(f"[INFO] Service can be invoked at IP: {service.get_service_ip()} at port {service.port}\n")
         return 1
     
     # Scale number of replicas
-    def scale_deployments(self, deployments, replicas, wait_to_scale=True, timeout=60):
+    def scale_deployments(self, deployment, replicas, wait_to_scale=True, timeout=30):
 
-        # Scale replicas
-        for deployment in deployments:
-            # Start the timer
-            signal.alarm(timeout)
-            deployment.scale_deployment(replicas)
-            try:
-                if wait_to_scale:
+        # Start the timer
+        signal.alarm(timeout)
+        deployment.scale_deployment(replicas)
+        try:
+            if wait_to_scale:
+                if self.verbose:
                     print(f"[RUNNING] Waiting for all replicas to scale")
-                    t_start = time.time()
-                    while not deployment.is_ready():
-                        continue
-                    # Cancel the timer when the replicas are ready
-                    signal.alarm(0)                
+                t_start = time.time()
+                while not deployment.is_ready():
+                    continue
+                # Cancel the timer when the replicas are ready
+                signal.alarm(0)      
+                if self.verbose:          
                     print(f"[UPDATE] Deployment {deployment.deployment_name} successfully scaled in {round(time.time() - t_start, 3)} seconds.\n")
-            except:
-                assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
+        except:
+            assert False, f"\n[ERROR] Deployment {deployment.deployment_name} deployment time exceeded timeout limit."
 
     # Delete functions when finished
-    def delete_functions(self, services):
-        for service in services:
-            service.delete_service()
+    def delete_functions(self, services, deployments_only=False, deployments=None, wait_time=2):
+        if not deployments_only:
+            for service in services:
+                service.delete_service()
+        else:
+            for deployment in deployments:
+                deployment.delete_deployment()
+        time.sleep(wait_time)
 
     # Get number of worker nodes
     def get_worker_num(self):
@@ -130,7 +139,8 @@ class Env:
 
         # Setup hostname file
         os.system('''echo '[ { "hostname": "''' + ip + '''" } ]' > ''' + INVOKER_FILE + '''endpoints.json''')
-        print(f"[INFO] Hostname file has been set up at {INVOKER_FILE}/endpoints.json")
+        if not self.verbose:
+            print(f"[INFO] Hostname file has been set up at {INVOKER_FILE}/endpoints.json")
 
         # Format the invoker command nicely
         invoker_cmd_join_list = [f'{INVOKER_FILE}/invoker',
@@ -138,11 +148,13 @@ class Env:
                                 f'-port {service.port}',
                                 f'-time {duration}',
                                 f'-rps {rps}',
+                                f'-latf {service.name}.csv',
                                 f'-endpointsFile {INVOKER_FILE}/endpoints.json']
         invoker_cmd = ' '.join(invoker_cmd_join_list)
 
         # Run invoker while redirecting output to separate file
-        print("[RUNNING] Invoking with command at second {}".format(time.time()), f'`{invoker_cmd}`\n')
+        if not self.verbose:
+            print("[RUNNING] Invoking with command at second {}".format(time.time()), f'`{invoker_cmd}`\n')
         
         self.invoker_start_time = time.time()
         stdout = os.popen(invoker_cmd)
@@ -171,6 +183,7 @@ class Env:
         if stat_lat_filename == None:
             assert False, "[ERROR] stat_lat_filename was not found."
         else:
+            timestamp = time.time()
             return (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename
 
     # Get latencies given the stat file
@@ -204,18 +217,32 @@ class Env:
 
             # Network-related metrics
             # Sum of the total network throughput for all devices, bps
-            network_rx_bps = (float)(p_metric.custom_query(
-                query=f'sum(rate(node_network_receive_bytes_total[{interval_sec}s]))')[0]['value'][1]) * 8
-            network_tx_bps = (float)(p_metric.custom_query(
-                query=f'sum(rate(node_network_transmit_bytes_total[{interval_sec}s]))')[0]['value'][1]) * 8
+
+            try:
+                network_rx_bps = (float)(p_metric.custom_query(
+                    query=f'sum(rate(node_network_receive_bytes_total[{interval_sec}s]))')[0]['value'][1]) * 8
+            except:
+                assert False
+            try:
+                network_tx_bps = (float)(p_metric.custom_query(
+                    query=f'sum(rate(node_network_transmit_bytes_total[{interval_sec}s]))')[0]['value'][1]) * 8
+            except:
+                assert False
             #
             tpl['net'] = [network_tx_bps, network_rx_bps]
-
+            
             # Memory-related metrics
             # Free memory, Bytes
             # import pdb; pdb.set_trace()
-            mem_free = p_metric.custom_query(
-                query=f'node_memory_MemAvailable_bytes[{interval_sec}s]')[0]['values']
+            mem_query = p_metric.custom_query(
+            query=f'node_memory_MemAvailable_bytes[{interval_sec}s]')
+            if 'value' in mem_query[0]:
+                assert False
+            try:
+                mem_free = mem_query[0]['values']
+            except:
+                assert False
+
             mem_free = np.array([(int)(val) for (_, val) in mem_free])
             mem_free_avg = np.average(mem_free)
 
