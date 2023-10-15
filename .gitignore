@@ -14,3 +14,5 @@ export/
 heatmaps/
 __pycache__/
 *.pyc
+*.pickle
+*.png
