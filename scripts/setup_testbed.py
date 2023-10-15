@@ -83,6 +83,12 @@ kInstallCmd_MasterSetupvSwarm = '''
     kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/memcached.yaml
 '''
 
+kInstallCmd_SetupRepo = '''
+    mkdir python-api
+    cd python-api
+    git clone https://github.com/barabanshek/MIT_PRIMEs.git 
+'''
+
 kInstallCmd_MasterPythonMLLibs = '''
     sudo apt install python3-pip -y
     pip install wandb numpy matplotlib seaborn pandas scipy kubernetes prometheus_api_client torch tqdm
@@ -325,7 +331,15 @@ class ServerlessDeployer:
                 print("ML libs are installed!")
             else:
                 print("Error when installing ML libs, try to do it manually")
-
+        #
+        print("Installing MIT_PRIMEs repo...")
+        _, stdout, stderr = self.ssh_clients_master_.exec_command(
+            kInstallCmd_SetupRepo)
+        exit_status = stdout.channel.recv_exit_status()
+        if exit_status == 0:
+            print("Repository setup in python-api/MIT_PRIMEs")
+        else:
+            print("Error when setting up repo, try to do it manually")
         #
         print("Installing Prometheus on all nodes...")
         self.__execute_script_in_parallel([self.ssh_clients_master_] + self.ssh_clients_workers_,
