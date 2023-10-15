@@ -1,13 +1,16 @@
 import os
 import pickle
-import re
-
+from itertools import product
+import numpy as np
+from subprocess import run
+import time
+import torch
+from dqn_main import DQN, ReplayMemory, Transition
 def main():
-  # print(re.findall(r'rps', 'rps979.03_fibonacci-python-abcdeabcde.csv'))
-  with open('successes.pickle', 'rb') as handle:
-    data = pickle.load(handle)
-    print(f'Benchmarks: {len(data)}')
-    print(f'Successes: {sum(data)}')
-
+  model = torch.jit.load('saved_models/gmkavb/target_net.pth')
+  model.eval()
+  with open('saved_models/gmkavb/replay_buffer.pickle', 'rb') as handle:
+    buffer = pickle.load(handle)
+  print(len(buffer.memory))
 if __name__ == "__main__":
   main()
