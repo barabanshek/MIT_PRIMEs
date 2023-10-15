@@ -18,6 +18,7 @@ import yaml
 import string
 import argparse
 import time
+import pickle
 from subprocess import run
 from yaml.loader import SafeLoader
 from os import path
@@ -30,7 +31,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-    
+
 plt.ion()
 
 # if GPU available, use GPU
@@ -83,7 +84,7 @@ BATCH_SIZE = 8
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.05
-EPS_DECAY = 1000
+EPS_DECAY = 150
 TAU = 0.005
 LR = 1e-4
 
@@ -92,6 +93,7 @@ steps_done = 0
 def select_action(state, policy_net, rl_env):
     global steps_done
     sample = random.random()
+    # Desmos format: 0.05+(0.9-0.05)*e^{(-1*x/1000)}
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
         math.exp(-1. * steps_done / EPS_DECAY)
     steps_done += 1
@@ -101,15 +103,15 @@ def select_action(state, policy_net, rl_env):
             # second column on max result is index of where max element was
             # found, so we pick action with the larger expected reward.
             # Get the action that returns the highest Q value.
-            print('Best action')
+            print(f'Taking BEST action (epsilon={round(eps_threshold, 3)})...')
             return policy_net(state).max(1)[1].view(1, 1)
     else:
-        print('Random action')
+        print(f'Taking RANDOM action (epsilon={round(eps_threshold, 3)})...')
         return torch.tensor([[rl_env.action_space.sample()]], device=device, dtype=torch.long)
     
 episode_durations = []
 
-def plot_durations(show_result=False):
+def plot_durations(id, show_result=False):
     plt.figure(1)
     durations_t = torch.tensor(episode_durations, dtype=torch.float)
     if show_result:
@@ -127,6 +129,7 @@ def plot_durations(show_result=False):
         plt.plot(means.numpy())
     
     plt.pause(0.001) # pause a bit so that plots are updated
+    plt.savefig(f'plot-durations-{id}.png')
 
 ### Training loop
 
@@ -184,17 +187,86 @@ def deploy_benchmark(benchmark, env):
 
     print(f'Successfully created objects for benchmark {benchmark.name}.')
 
-# Use this until parallel deployment is working.
-# Parallel deployment not working due to inability to append objects to Manager().list()
-def deploy_benchmarks_non_parallel(benchmarks, env):
-    slas, current_benchmarks = {}, []
+# Cleanup functions when done.
+def cleanup(aggressive=False, delete_manifests=True):
+    run('''kubectl delete deployment --all''', shell=True)
+    run('''kubectl delete service --all''', shell=True)
+    run('''kubectl delete hpa --all''', shell=True)
+    if aggressive:
+        run('''kubectl delete pods --all --grace-period=0 --force''', shell=True)
+    run('''kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/database.yaml''', shell=True)
+    run('''kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/memcached.yaml''', shell=True)
+    if delete_manifests:
+        delete_files_in_directory('./k8s-yamls/tmp/')
+    run('''find . -name 'rps*.csv' -delete''', shell=True)
+    print('Deleted all latency files.')
+
+# TODO (Nikita): this function still needs a lot of work.
+def wandb_log(log_data):
+    def truncate_name(name):
+        if "hotel-app-profile" in name:
+            return "hotel-app-profile"
+        if "hotel-app-geo" in name:
+            return "hotel-app-geo"
+        if "fibonacci-python" in name:
+            return "fibonacci-python"
+
+    lats_dict = dict(
+            (truncate_name(lat_f), {
+                '50th': lat_v[0],
+                '90th': lat_v[1],
+                '99th': lat_v[2],
+                '99.9th': lat_v[3],
+            }) for (lat_f, lat_v) in log_data['lats'].items()
+        )
+
+    wandb.log({
+        "reward": log_data['reward'],
+        "QoS": lats_dict,
+        "Observations": {
+            "cpu": log_data['observation:cpu'],
+            "mem_free": log_data['observation:mem_free'],
+            "net_transmit": log_data['observation:net_transmit'],
+            "net_receive": log_data['observation:net_receive'],
+        },
+        "Containers": {
+            "fn1": log_data['num_containers'][0],
+            "fn2": log_data['num_containers'][1],
+            "fn3": log_data['num_containers'][2]
+        },
+        "RPS": log_data['rps'],
+        "Episode": log_data['episode']
+    })
+
+def save_replay_buffer(replay_buffer, filename):
+    with open(filename, 'wb') as f:
+        pickle.dump(replay_buffer, f)
+
+def main(args):
+    # Manually configure RPS values for now.
+    RPS_VALS = random.sample(range(100, 1000), int(args.e))
+    with open(args.config, 'r') as f:
+        json_data = json.load(f)
+        benchmarks = json_data['benchmarks']
+    # Initialize Envs
+    env_shim = Env(verbose=True)
+    # Setup Prometheus and check if setup is successful.
+    if not env_shim.setup_prometheus():
+        print("[ERROR] Prometheus setup failed, please read error message and try again.")
+        return 0
+    # List of all Benchmark objects
+    bm_objects = []
+    # Create manifests and objects.
     for benchmark in benchmarks:
-        services, deployments = [], []
+        deployments, services = [], []
         benchmark_name = benchmark['name']
         rand_id = ''.join(random.choices(string.ascii_lowercase, k=10))
         benchmark_name += '-' + rand_id
         functions = benchmark['functions']
+        entry_point_function = benchmark['entry-point']
+        entry_point_function_index = functions.index(entry_point_function)            
         sla = benchmark['sla']
+        rps_range = (benchmark['rps-min'], benchmark['rps-max'])
         for i in range(len(functions)):
             # Read YAML of original function to get dicts.
             file_name = f"k8s-yamls/{functions[i]}.yaml"
@@ -216,110 +288,26 @@ def deploy_benchmarks_non_parallel(benchmarks, env):
             port = new_svc['spec']['ports'][0]['port']
             service = Service(new_funct, file_name, port)
             # Instantiate Deployment objects
-            deployment = Deployment(new_dep, env.api)
+            deployment = Deployment(new_dep, env_shim.api)
             # Update deployments and services
             deployments.append(deployment)
             services.append(service)
-        if not env.setup_functions(list(deployments), list(services)):
-            env.delete_functions(list(services))
-            print(f"[ERROR] Benchmark `{benchmark_name}` setup failed, please read error message and try again.")
-            return 0    
-        # Add the SLA into the SLAs dict
-        slas[benchmark_name] = sla
-        current_benchmarks.append(benchmark_name)
-        print(f'Successfully created objects for benchmark {benchmark_name}.')
-    return (services, deployments, slas, current_benchmarks)
-
-# Cleanup functions when done.
-def cleanup():
-    run('''kubectl delete deployment --all''', shell=True)
-    run('''kubectl delete service --all''', shell=True)
-    run('''kubectl delete hpa --all''', shell=True)
-    run('''kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/database.yaml''', shell=True)
-    run('''kubectl apply -f ~/vSwarm/benchmarks/hotel-app/yamls/knative/memcached.yaml''', shell=True)
-    delete_files_in_directory('./k8s-yamls/tmp/')
-    run('''find . -name 'rps*.csv' -delete''', shell=True)
-    print('Deleted all latency files.')
-    
-def main(args):
-    # wandb.init(project='dqn-serverless')
-    # Initialize Envs
-    env_shim = Env(verbose=True)
-    # Setup Prometheus and check if setup is successful.
-    if not env_shim.setup_prometheus():
-        print("[ERROR] Prometheus setup failed, please read error message and try again.")
-        return 0
-    with open(args.config, 'r') as f:
-        json_data = json.load(f)
-    benchmarks = json_data['benchmarks']
-
-    with Manager() as manager:
-        # List of all Benchmark objects
-        bm_objects = []
-        # Create manifests and objects.
-        for benchmark in benchmarks:
-            deployments, services = [], []
-            benchmark_name = benchmark['name']
-            rand_id = ''.join(random.choices(string.ascii_lowercase, k=10))
-            benchmark_name += '-' + rand_id
-            functions = benchmark['functions']
-            entry_point_function = benchmark['entry-point']
-            entry_point_function_index = functions.index(entry_point_function)            
-            sla = benchmark['sla']
-            rps_range = (benchmark['rps-min'], benchmark['rps-max'])
-            for i in range(len(functions)):
-                # Read YAML of original function to get dicts.
-                file_name = f"k8s-yamls/{functions[i]}.yaml"
-                with open(path.join(path.dirname(__file__), file_name)) as f:
-                    dep, svc, hpa = yaml.load_all(f, Loader=SafeLoader)
-                # Update function to include new id.
-                new_funct = functions[i] + '-' + rand_id
-                # Update the old dict to include new id.
-                new_dep, new_svc, new_hpa = rename_yaml(dep, svc, hpa, new_funct)
-                # List of manifests as dicts to be converted into new YAML file.
-                manifests = [new_dep, new_svc]
-                # Update file name
-                make_dir('k8s-yamls/tmp')
-                file_name = f"k8s-yamls/tmp/{new_funct}.yaml"
-                # Dump manifests into new YAML file.
-                with open(file_name, 'x') as f:
-                    yaml.dump_all(manifests, f)
-                # Instantiate Service objects
-                port = new_svc['spec']['ports'][0]['port']
-                service = Service(new_funct, file_name, port)
-                # Instantiate Deployment objects
-                deployment = Deployment(new_dep, env_shim.api)
-                # Update deployments and services
-                deployments.append(deployment)
-                services.append(service)
-            bm_object = Benchmark(benchmark_name, deployments, services, entry_point_function_index, sla, rps_range)
-            bm_objects.append(bm_object)
-        # Simultaneously deploy all benchmarks.
-        processes = []
-        for bm in bm_objects:
-            p = Process(target=deploy_benchmark, args=(bm, env_shim))
-            processes.append(p)
-            p.start()
-        for proc in processes:
-            proc.join()
-        for bm in bm_objects:
-            bm.update_replicas()
-    
-    # Sequential deployment until we debug parallel deployment.
-    # services, deployments, slas, current_benchmarks = deploy_benchmarks_non_parallel(benchmarks, env_shim)
-    
+        bm_object = Benchmark(benchmark_name, deployments, services, entry_point_function_index, sla, rps_range)
+        bm_objects.append(bm_object)
+    # Initialize KubernetesEnv
     k8s_env = KubernetesEnv(env_shim, bm_objects)
     timestep = int(args.t)
     # Action space is cartesian product of the three possible scaling decisions for three functions
-    action_space = ActionSpace(list(product([-1, 0, 1], repeat=len(bm_objects))))
+    action_space = ActionSpace(list(product([-1, 0, 1], repeat=len(benchmarks))))
+    # Initialize RL Env.
     rl_env = RLEnv(action_space, k8s_env, timestep)
-
+    run_id = rl_env.rand_id
+    # Initialize state.
+    init_state = rl_env.compute_state()
     # Get number of actions from action space
-    n_actions = rl_env.action_space.n
-    # Get the number of state observations
-    print("Resetting RLEnv...")
-    state = rl_env.reset()
-    n_observations = len(state)
+    n_actions = action_space.n
+    # Get number of observations from state space.
+    n_observations = len(init_state)
 
     policy_net = DQN(n_observations, n_actions).to(device)
     target_net = DQN(n_observations, n_actions).to(device)
@@ -329,31 +317,69 @@ def main(args):
     memory = ReplayMemory(10000)
         
     if torch.cuda.is_available():
-        num_episodes = 50
+        num_episodes = len(RPS_VALS)
     else:
-        num_episodes = 50
-        
+        num_episodes = len(RPS_VALS)
+    # Initialize wandb logging.
+    wandb.init(project='serverless-dqn')
+    
+    ### Iterate through training episodes.
     for i_episode in range(num_episodes):
-        # Initialize the environment and get its state
-        print("Resetting RLEnv...")
-        state = rl_env.reset()
-        # state is of the form tensor([[rps1, rps2, rps3, cpu, mem, net_transmit, net_receive]])
+        rps = RPS_VALS[i_episode]
+        print(f'\n>>> Running episode {i_episode + 1} with {rps} RPS.\n')
+        # Simultaneously deploy all benchmarks.
+        processes = []
+        for bm in bm_objects:
+            p = Process(target=deploy_benchmark, args=(bm, env_shim))
+            processes.append(p)
+            p.start()
+        for proc in processes:
+            proc.join()
+        # Update RPS for all benchmarks.
+        for idx, bm in enumerate(bm_objects):
+            bm.rps = rps
+            bm_objects[idx] = bm
+        # Update KubernetesEnv with new Benchmark objects..
+        k8s_env.benchmarks = bm_objects
+        # Update RLEnv.
+        rl_env.k8s_env = k8s_env
+        # Keep trying to reset state.
+        for c in count():
+            try:
+                # Reset state.
+                print(f'Reseting state for new episode, attempt {c+1}.\n')
+                state = rl_env.reset()
+            except Exception as e:
+                print(f'>>> Error: {e}')
+                print('>>> Retrying...')
+            else:
+                print('>>> Env reset success.')
+                break
+        # state is of the form tensor([[cpu, mem, net_transmit, net_receive, n_containers]])
         state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
         for t in count():
+            print(f'>>> Timestep: {t}')
             # action is of the form tensor[[action_i]]
             action = select_action(state, policy_net, rl_env)
-            observation, reward, terminated, truncated = rl_env.step(action.item())
+            observation, reward, terminated, truncated, lats = rl_env.step(action.item())
             reward = torch.tensor([reward], device=device)
             done = terminated or truncated
-            rl_env.save_step(t+1, action.item())
-            cpu, mem_free, net_transmit, net_receive = observation
-            # wandb.log({"action" : action.item(),
-            #            "reward" : reward,
-            #            "cpu" : cpu,
-            #            "mem_free" : mem_free,
-            #            "net_transmit" : net_transmit,
-            #            "net_receive" : net_receive})
-            
+            rl_env.save_step(i_episode, t+1, action.item(), lats)
+            cpu, mem_free, net_transmit, net_receive, n_containers, rps_ = observation
+
+            # Log things.
+            log_data = {}
+            log_data['episode'] = i_episode + 1
+            log_data['reward'] = reward
+            log_data['lats'] = lats
+            log_data['observation:cpu'] = cpu
+            log_data['observation:mem_free'] = mem_free
+            log_data['observation:net_transmit'] = net_transmit
+            log_data['observation:net_receive'] = net_receive
+            log_data['num_containers'] = [benchmark.replicas for benchmark in k8s_env.benchmarks]
+            log_data['rps'] = rps_
+            wandb_log(log_data)
+
             if terminated:
                 next_state = None
             else:
@@ -378,23 +404,34 @@ def main(args):
             
             if done:
                 episode_durations.append(t + 1)
-                plot_durations()
+                plot_durations(run_id)
                 break
-            if t == 150:
-                plot_durations()
-                break
+            # if t == 149:
+            #     plot_durations()
+            #     break
         print('Episode finished.')
-        # cleanup()
-      
-# print('Complete')
-# plot_durations(show_result=True)
-# plt.ioff()
-# plt.savefig('dqn.png')
-# plt.show()
+        cleanup(delete_manifests=False)
+
+    print('Done.')
+    print(f'Saving models to saved_models/{run_id}...')
+    # Save Replay Buffer, policy net, and target net.
+    make_dir(f'saved_models/{run_id}')
+    target = f'saved_models/{rl_env.rand_id}/target_net.pth'
+    policy = f'saved_models/{rl_env.rand_id}/policy_net.pth'
+    buffer = f'saved_models/{rl_env.rand_id}/replay_buffer.pickle'
+    target_scripted = torch.jit.script(target_net)
+    target_scripted.save(target)
+    policy_scripted = torch.jit.script(policy_net)
+    policy_scripted.save(policy)
+    save_replay_buffer(memory, buffer)
+    cleanup()
+    plot_durations(run_id, show_result=True)
+    plt.ioff()
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
     # Config file for benchmarks
+    parser = argparse.ArgumentParser()
     parser.add_argument('--config')
     parser.add_argument('-t')
+    parser.add_argument('-e')
     args = parser.parse_args()
     main(args)

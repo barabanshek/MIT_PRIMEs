@@ -7,8 +7,8 @@ from subprocess import run
 from itertools import count
 # Register a handler for timeouts
 def timeout_handler(signum, frame):
-    raise Exception("[ERROR] timeout limit exceeded.\n")
-
+    raise TimeoutError("[ERROR] timeout limit exceeded.\n")
+    
 # Register signal function handler
 signal.signal(signal.SIGALRM, timeout_handler)
 
@@ -45,6 +45,20 @@ def unpack_env_state(env_state):
         net_receive = env_state[k]['net'][1]
         ret.append((cpu_idle, cpu_user, cpu_system, mem_free, net_transmit, net_receive))
     return ret
+
+# Check if QoS has been met for all benchmarks.
+# Returns a boolean.
+def qos_is_met(benchmarks, lats):
+    for benchmark in benchmarks:
+        benchmark_name = benchmark.name
+        sla_lats = benchmark.sla['lat']
+        actual_lats = lats[benchmark_name]
+        # Use 90th percentile for now.
+        sla_90 = sla_lats[1]
+        actual_90 = actual_lats[1]
+        if sla_90 < actual_90:
+            return False
+    return True
 
 class Benchmark():
     def __init__(self, name, deployments, services, entry_point_i, sla, rps_range):
@@ -85,6 +99,7 @@ class KubernetesEnv():
     def __init__(self, env, benchmarks):
         self.env = env
         self.benchmarks = benchmarks
+        self.terminated = False
                     
     def get_env_state(self, t):
         try:
@@ -138,14 +153,18 @@ class KubernetesEnv():
             assert False, f"\n[ERROR] Failed to scale {benchmark.services[0].name} to {target_replicas} replicas.`\n[ERROR] Error message: {ret.stderr}"
         print(f'Waiting to scale deployment `{benchmark.services[0].name}`...')
         # Wait to scale.
-        while not benchmark.deployments[0].is_ready():
-            continue
+        try:
+            while not benchmark.deployments[0].is_ready():
+                continue
+            print(f'Deployment `{benchmark.services[0].name}` successfully scaled in {round(time.time() - start, 3)} seconds.\n')
+        except TimeoutError as exc:
+            print('{}: {}'.format(exc.__class__.__name__, exc))
+            assert False
         # Cancel the timer when the replicas are ready
         signal.alarm(0)      
-        print(f'Deployment `{benchmark.services[0].name}` successfully scaled in {round(time.time() - start, 3)} seconds.\n')
         
     # Take the action and get the latencies for a given time.
-    def evaluate_action(self, action_set, t):
+    def evaluate_action(self, action_set, t, cooldown=15):
         print(f'ACTION SET: {action_set}')
         updated_counts = [max(self.benchmarks[i].replicas + action_set[i], 1) for i in range(len(action_set))]
         print(f'PROPOSED REPLICAS: {updated_counts}\n')
@@ -172,8 +191,14 @@ class KubernetesEnv():
             benchmark.update_replicas()
         print('All deployments successfully scaled.\n')
         # Invoke in parallel
+        invoke_failures = 0
         for c in count():
             print(f'Invocation attempt {c+1}:')
+            # If N consecutive failures are encountered, sleep for (N/3 * cooldown) seconds.
+            if invoke_failures != 0 and invoke_failures % 3 == 0:
+                timeout = cooldown*invoke_failures/3
+                print(f'{invoke_failures} successive invocation errors: cooling down for {timeout} seconds...')
+                time.sleep(timeout)
             try:
                 with Manager() as manager:
                     lats = manager.dict()
@@ -191,14 +216,21 @@ class KubernetesEnv():
                         print('Invocation error: insufficient latencies.')
                         assert False
                     print('>>> Invocation success.\n')
+                    # Check if QoS has been met.
+                    self.terminated = qos_is_met(self.benchmarks, lats)
+                    if self.terminated:
+                        print("QoS is met, terminating this episode...\n")
+                    else:
+                        print("QoS not yet met...\n")
                     return lats
             except Exception as e:
+                invoke_failures += 1
                 print(f'Invocation error: {e}')
                 print('Invocation failed: retrying...')
 
     # TODO: update
     def check_termination(self):
-        return False
+        return self.terminated
     
     # TODO: update
     def check_truncation(self):

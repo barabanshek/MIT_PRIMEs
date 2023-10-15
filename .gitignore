@@ -13,3 +13,4 @@ expanded-data-analysis/
 export/
 heatmaps/
 __pycache__/
+*.pyc
