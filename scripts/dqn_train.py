@@ -7,16 +7,18 @@
 # LR is the learning rate of the ``AdamW`` optimizer
 from dqn import *
 import csv
+import numpy as np
+import wandb
 
-BATCH_SIZE = 4
+BATCH_SIZE = 8
 GAMMA = 0.99
 EPS_START = 0.99
 EPS_END = 0.05
-EPS_DECAY = 100
+EPS_DECAY = 50
 TAU = 0.005
 LR = 1e-3
 # Get number of actions from gym action space
-n_actions = 27
+n_actions = 3
 # Get the number of state observations
 
 env = RLEnv("configs.json")
@@ -39,13 +41,14 @@ invoker_configs = {}
 benchmarks = 0
 entrypoints = []
 def invoker_stats():
+    global benchmarks
     with open("configs.json", 'r')  as f:
         json_data = json.load(f)
     benchmarks_ = json_data["benchmarks"]
     for benchmark in benchmarks_:
-        entrypoints.append()
+        entrypoints.append(benchmark["entry-point"])
         benchmarks += 1
-        invoker_configs.update({benchmark["entrypoint"] : benchmark["invoker-configs"]})
+        invoker_configs.update({benchmark["entry-point"] : benchmark["invoker-configs"]})
 
 def select_action(state):
     global steps_done
@@ -142,24 +145,42 @@ def optimize_model():
     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
     optimizer.step()
 
-def main():
+def wandb_log(log_data):
 
+    wandb.log({
+        "reward": log_data['reward'],
+        "QoS": log_data['latency'],
+        "Observations": {
+            "cpu": log_data['cpu_user'],
+            "mem_free": log_data['mem_free'],
+        },
+        "actions": {
+            #"containers": log_data['num_containers'],
+            "cpu_limit": log_data["cpu_limit"],
+            "mem_limit": log_data["mem_limit"],
+        }
+    })
+
+def main():
+    wandb.init(project='serverless-dqn')
+    invoker_stats()
     with open("rl_stats.csv", "a", newline = '') as file:
                 writer = csv.writer(file)
-                writer.writerow(["episode", "rps", "duration", "action", "cpu_user", "mem_free", "cpu_limit", "mem_limit", "replicas", "reward", "90_latency"])
+                writer.writerow(["episode", "rps", "duration", "action", "cpu_user", "mem_free", "cpu_limit", "mem_limit", "replicas", "reward", "90_latency", "complete_rate"])
                 file.close()
 
     if torch.cuda.is_available():
         num_episodes = 50
     else:
-        num_episodes = 25
+        num_episodes = 50
 
     for i_episode in range(num_episodes):
         # Initialize the environment and get it's state
         state = env.reset()
         state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
         rps = random.randint(10, 250)
-        duration = random.randint(10,20)
+        duration = 5
+        counter = 0
         for t in range(episodes_length):
             print("episode: " + str(i_episode))
             print("step: " + str(t))
@@ -168,8 +189,14 @@ def main():
             tempreward = 0
             latency = 0
             for entrypoint in entrypoints:
-                tempstate, tempreward, latency = env.step((int)(action.item()), rps, duration, entrypoint)
-            
+                tempstate, tempreward, latency, completerate = env.step((int)(action.item()), rps, duration, entrypoint)
+            if latency<latencyqos: #qos is satisfied
+                counter += 1
+            else:
+                counter = 0
+            print("QOS met: " + str(counter))
+            tempreward += (0.2*counter)
+
             reward = torch.tensor([tempreward], device=device)
 
             next_state = torch.tensor(tempstate, dtype=torch.float32, device=device).unsqueeze(0)
@@ -193,13 +220,28 @@ def main():
 
             with open("rl_stats.csv", "a", newline = '') as file:
                 writer = csv.writer(file)
-                writer.writerow([i_episode, rps, duration, action, tempstate[0], tempstate[1], tempstate[2], tempstate[3], tempstate[4], tempreward, latency])
+                writer.writerow([i_episode, rps, duration, action, tempstate[0], tempstate[1], tempstate[2], tempstate[3], tempstate[4], tempreward, latency, completerate])
                 file.close()
-
+            
+            # Log things.
+            log_data = {}
+            log_data['reward'] = tempreward
+            log_data['latency'] = latency
+            log_data['cpu_user'] = tempstate[0]
+            log_data['mem_free'] = tempstate[1]
+            log_data['cpu_limit'] = tempstate[2]
+            log_data['mem_limit'] = tempstate[3]
+            log_data['num_containers'] = tempstate[4]
+            wandb_log(log_data)
+            
+            if counter == 10:
+                break
+        print("Saving model...")
+        torch.save(target_net.state_dict(), "model/model.pt")
     print('Complete')
-    plot_durations(show_result=True)
-    plt.ioff()
-    plt.show()
-    torch.save(target_net, "model/model.pth")
+
+def test():
+    for i in range(100):
+        print(select_action((torch.tensor([0,0,0,0,0], dtype=torch.float32, device=device).unsqueeze(0))))
 
 main()

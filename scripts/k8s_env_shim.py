@@ -209,42 +209,47 @@ class Env:
 
             # CPU-related metrics
             # Average CPU idle cycles for all CPUs, [0-1]
-            cpu_idle = (float)(p_metric.custom_query(
-                query=f'avg(rate(node_cpu_seconds_total{{mode="idle"}}[{interval_sec}s]))')[0]['value'][1])
-            # Average CPU user cycles for all CPUs, [0-1]
-            cpu_user = (float)(p_metric.custom_query(
-                query=f'avg(rate(node_cpu_seconds_total{{mode="user"}}[{interval_sec}s]))')[0]['value'][1])
-            # Average CPU system cycles for all CPUs, [0-1]
-            cpu_system = (float)(p_metric.custom_query(
-                query=f'avg(rate(node_cpu_seconds_total{{mode="system"}}[{interval_sec}s]))')[0]['value'][1])
-            #
-            tpl['cpu'] = [cpu_idle, cpu_user, cpu_system]
+            try:
+                cpu_idle = (float)(p_metric.custom_query(
+                    query=f'avg(rate(node_cpu_seconds_total{{mode="idle"}}[{interval_sec}s]))')[0]['value'][1])
+                # Average CPU user cycles for all CPUs, [0-1]
+                cpu_user = (float)(p_metric.custom_query(
+                    query=f'avg(rate(node_cpu_seconds_total{{mode="user"}}[{interval_sec}s]))')[0]['value'][1])
+                # Average CPU system cycles for all CPUs, [0-1]
+                cpu_system = (float)(p_metric.custom_query(
+                    query=f'avg(rate(node_cpu_seconds_total{{mode="system"}}[{interval_sec}s]))')[0]['value'][1])
+                #
+                tpl['cpu'] = [cpu_idle, cpu_user, cpu_system]
 
-            # Network-related metrics
-            # Sum of the total network throughput for all devices, bps
-            network_rx_bps = (float)(p_metric.custom_query(
-                query=f'sum(rate(node_network_receive_bytes_total[{interval_sec}s]))')[0]['value'][1]) * 8
-            network_tx_bps = (float)(p_metric.custom_query(
-                query=f'sum(rate(node_network_transmit_bytes_total[{interval_sec}s]))')[0]['value'][1]) * 8
-            #
-            tpl['net'] = [network_tx_bps, network_rx_bps]
+                # Network-related metrics
+                # Sum of the total network throughput for all devices, bps
+                network_rx_bps = (float)(p_metric.custom_query(
+                    query=f'sum(rate(node_network_receive_bytes_total[{interval_sec}s]))')[0]['value'][1]) * 8
+                network_tx_bps = (float)(p_metric.custom_query(
+                    query=f'sum(rate(node_network_transmit_bytes_total[{interval_sec}s]))')[0]['value'][1]) * 8
+                #
+                tpl['net'] = [network_tx_bps, network_rx_bps]
 
-            # Memory-related metrics
-            # Free memory, Bytes
-            # import pdb; pdb.set_trace()
-            mem_free = p_metric.custom_query(
-                query=f'node_memory_MemAvailable_bytes[{interval_sec}s]')[0]['values']
-            mem_free = np.array([(int)(val) for (_, val) in mem_free])
-            mem_free_avg = np.average(mem_free)
+                # Memory-related metrics
+                # Free memory, Bytes
+                # import pdb; pdb.set_trace()
+                mem_free = p_metric.custom_query(
+                    query=f'node_memory_MemAvailable_bytes[{interval_sec}s]')[0]['values']
+                mem_free = np.array([(int)(val) for (_, val) in mem_free])
+                mem_free_avg = np.average(mem_free)
 
-            # Total memory, look-up 1 time and cache
-            if self.total_mem_ == None:
-                self.total_mem_ = (int)(p_metric.custom_query(
-                    query=f'node_memory_MemTotal_bytes')[0]['value'][1])
+                # Total memory, look-up 1 time and cache
+                if self.total_mem_ == None:
+                    self.total_mem_ = (int)(p_metric.custom_query(
+                        query=f'node_memory_MemTotal_bytes')[0]['value'][1])
 
-            #
-            mem_free_frac = mem_free_avg / (float)(self.total_mem_)
-            tpl['mem'] = mem_free_frac
+                #
+                mem_free_frac = mem_free_avg / (float)(self.total_mem_)
+                tpl['mem'] = mem_free_frac
+            except:
+                tpl['cpu'] = [1, 1, 1]
+                tpl['net'] = [1, 1]
+                tpl['mem'] = 0
 
             # Append all metrics for this worker
             ret[p_id] = tpl

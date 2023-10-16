@@ -9,6 +9,7 @@ from pprint import pprint
 from setup_service import Service
 from setup_deployment import Deployment
 import random
+import math
 
 latencyqos = 400000
 
@@ -21,7 +22,7 @@ def run_service(env, service, invoker_configs):
         env.invoke_service(service, duration, rps)
     lat_stat = env.get_latencies(stat_lat_filename)
     if lat_stat == []:
-        lat_stat.append(latencyqos+1)
+        lat_stat.append(latencyqos*10)
     
     return (stat_completed/stat_issued,  lat_stat[(int)(len(lat_stat) * 0.90)])
 
@@ -41,7 +42,7 @@ class RLEnv:
     deployments = []
     services = []
 
-    cpu_step = 40
+    cpu_step = 30
     mem_step = 100
     replicas_step = 1
 
@@ -50,7 +51,7 @@ class RLEnv:
     durations = {}
     def __init__(self, config):
         self.states['cpu_limit'] = self.initial_cpu_lim
-        self.states['memory_limit'] = self.initial_mem_lim
+        self.states['mem_limit'] = self.initial_mem_lim
         self.env = Env()
         with open(config, 'r') as f:
             json_data = json.load(f)
@@ -109,24 +110,29 @@ class RLEnv:
 
     def executeaction(self, action): #[cpu, mem]
         cpu = action%3 - 1
-        mem = (action//3) % 3 - 1
-        replica = (action//9) - 1
+        #mem = (action//3) % 3 - 1
+        #replica = (action//9) - 1
+        oldcpu = self.states["cpu_limit"]
         self.states["cpu_limit"] += (cpu*self.cpu_step)
-        self.states["mem_limit"] += (mem*self.mem_step)
-        self.states["replicas"] += (replica*self.replicas_step)
+        #self.states["mem_limit"] += (mem*self.mem_step)
+        #self.states["replicas"] += (replica*self.replicas_step)
         if self.states["cpu_limit"]<=0:
-            self.states["cpu_limit"] = 100 #default
+            self.states["cpu_limit"] = 20 #default
         
         if self.states["mem_limit"]<=0:
-            self.states["mem_limit"] = 500 #default
+            self.states["mem_limit"] = 100 #default
         
         if self.states["replicas"]<=0:
             self.states["replicas"] = 1 #default
         if self.states["replicas"]>5:
             self.states["replicas"] = 5 #overflow i think
+        try:
+            self.env.scale_pods(self.deployments, (str)(str(self.states["cpu_limit"]) + "m"), (str)(str(self.states["mem_limit"]) + "Mi"))
+            self.env.scale_deployments(self.deployments, (int)(self.states["replicas"]))
+        except:
+            print("pods failed to scale")
+            self.states["cpu_limit"] = oldcpu
 
-        self.env.scale_pods(self.deployments, (str)(str(self.states["cpu_limit"]) + "m"), (str)(str(self.states["mem_limit"]) + "Mi"))
-        self.env.scale_deployments(self.deployments, (int)(self.states["replicas"]))
 
     def reset(self): #default params
         self.states["cpu_user"] = 0
@@ -140,12 +146,11 @@ class RLEnv:
     
     def step(self, action, rps, duration, entrypoint):
         self.executeaction(action)
-        #time = random.randint(10, 20)
         latency, complete_rate = self.invokefunction(duration, rps, entrypoint) #self.invokefunction(time, random.randint(100, 400))
 
         self.observestates(duration)
-        if latency>latencyqos:
-            reward = -10
-        else:
-            reward = 5*((complete_rate) + (1-latency/latencyqos)) + 10*((self.states["cpu_user"]*10000/self.states["cpu_limit"]) + (((1-self.states["mem_free"])*625)/self.states["mem_limit"]))
-        return list(self.states.values()), reward, latency
+        reward = 0
+        reward = (2 * ((complete_rate) + max((1-latency/latencyqos), 0)) - 2.5*(self.states["cpu_user"]*10)) # + ((min((self.states["cpu_user"]*10000/self.states["cpu_limit"]), 1))**3 + (min((((1-self.states["mem_free"])*625)/self.states["mem_limit"]), 1))**3) 
+        if latency == latencyqos*10:
+            reward -= 2
+        return list(self.states.values()), reward, latency, complete_rate
