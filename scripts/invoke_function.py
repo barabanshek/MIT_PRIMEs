@@ -6,6 +6,7 @@ import yaml
 from subprocess import run
 from os import path
 from yaml import SafeLoader
+import random
 
 INVOKER_FILE = '~/vSwarm/tools/invoker/'
 
@@ -77,23 +78,44 @@ def invoke_service(service_name, duration, rps, port):
         assert False, "[ERROR] stat_lat_filename was not found."
     else:
         return (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename
-
+    
+def is_ready(deployment_name):
+    # Command to check rollout status
+    status_cmd = f"kubectl rollout status deployment/{deployment_name}"
+    # Run the command.
+    ret = run(status_cmd, capture_output=True, shell=True, universal_newlines=True).stdout
+    # Check if the output message shows successful rollout
+    return ret == '''deployment "''' + deployment_name + '''" successfully rolled out\n'''
 def main(args):
     manifest = args.file
     duration = args.d
     rps = args.rps
 
-    create_service(manifest)
-    time.sleep(10)
+    # create_service(manifest)
+    # time.sleep(10)
 
     with open(path.join(path.dirname(__file__), manifest)) as f:
         dep, svc, hpa = yaml.load_all(f, Loader=SafeLoader)
     service_name = svc['metadata']['name']
     port = svc['spec']['ports'][0]['port']
 
+    for i in range(50):
+        print(f'Iteration {i+1}')
+        n = random.randint(1, 15)
+        print(f'Scaling to {n}...')
+        scale_cmd = f'kubectl scale deployment/{service_name} --replicas={n}'
+        run(scale_cmd, shell=True)
+        start = time.time()
+        while not is_ready(service_name):
+            continue
+        print(f'Finished scaling in {time.time() - start} seconds.')
+        ret = invoke_service(service_name, duration, rps, port)
+        print(ret)
+        x = 5
+        print(f'Sleeping for {x} seconds...')
+        time.sleep(x)
 
-    ret = invoke_service(service_name, duration, rps, port)
-    print(ret)
+        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
