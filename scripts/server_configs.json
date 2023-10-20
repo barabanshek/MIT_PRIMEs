@@ -1,11 +1,8 @@
 {
     "servers": {
         "hostnames": {
-            "hp066.utah.cloudlab.us" : "master",
-            "hp053.utah.cloudlab.us" : "worker",
-            "hp072.utah.cloudlab.us" : "worker",
-            "hp067.utah.cloudlab.us" : "worker",
-            "hp051.utah.cloudlab.us" : "worker"
+            "hp005.utah.cloudlab.us" : "master",
+            "hp032.utah.cloudlab.us" : "worker"
         }
     },
 

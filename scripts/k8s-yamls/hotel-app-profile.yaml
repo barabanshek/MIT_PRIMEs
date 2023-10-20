@@ -23,7 +23,7 @@ spec:
                 - key: kubernetes.io/hostname
                   operator: In
                   values:
-                  - node-1.alan.ragger-pg0.utah.cloudlab.us
+                  - node-1.niklz-173311.ragger-pg0.utah.cloudlab.us
       containers:
         # Relay --------------
         - name: relay
