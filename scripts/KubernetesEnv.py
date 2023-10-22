@@ -2,7 +2,6 @@ from multiprocessing import Process, Manager
 import random
 import time
 import signal
-from threading import Thread
 from pprint import pprint
 from subprocess import run
 from itertools import count
@@ -173,9 +172,7 @@ class KubernetesEnv():
                     print(f'The offending pod is {pod_name}.')
                     # Delete the offending pod.
                     delete_pod_cmd = f'kubectl delete pod/{pod_name} --wait=false'
-                    # Create a thread so the pod deletion doesn't stop the code.
-                    t = Thread(target=run, args=(delete_pod_cmd,), kwargs={'shell' : True, 'capture_output' : True})
-                    t.start()
+                    run(delete_pod_cmd, shell=True, capture_output=True)
                     print(f'Offending pod {pod_name} is being deleted.')
             # Scale back to the desired count to replace deleted pods.
             print('Scaling back to desired count...')
