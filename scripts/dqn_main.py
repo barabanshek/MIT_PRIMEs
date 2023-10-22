@@ -111,6 +111,15 @@ def select_action(state, policy_net, rl_env):
     
 episode_durations = []
 
+def plot_avg_times(id, avg_times):
+    plt.figure(1)
+    plt.title('Average time per timestep')
+    plt.xlabel('Timestep')
+    plt.ylabel('Duration')
+    plt.plot(avg_times)
+    plt.pause(0.001)
+    plt.savefig(f'avg-times-{id}.png')
+
 def plot_durations(id, show_result=False):
     plt.figure(1)
     durations_t = torch.tensor(episode_durations, dtype=torch.float)
@@ -357,6 +366,8 @@ def main(args):
                 break
         # state is of the form tensor([[cpu, mem, net_transmit, net_receive, n_containers]])
         state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+        avg_step_times = []
+        t_start = time.time()
         for t in count():
             print(f'>>> Timestep: {t}')
             # action is of the form tensor[[action_i]]
@@ -401,7 +412,11 @@ def main(args):
             for key in policy_net_state_dict:
                 target_net_state_dict[key] = policy_net_state_dict[key] * TAU + target_net_state_dict[key] * (1-TAU)
             target_net.load_state_dict(target_net_state_dict)
-            
+            total_time = time.time() - t_start
+            avg_time = total_time/(t+1)
+            print(f'Average time per step so far: {round(avg_time, 4)} seconds.')
+            avg_step_times.append(avg_time)
+            plot_avg_times(run_id, avg_step_times)
             if done:
                 episode_durations.append(t + 1)
                 plot_durations(run_id)
@@ -410,9 +425,11 @@ def main(args):
             #     plot_durations()
             #     break
         print('Episode finished.')
+        print(f'Total Invoke Failures: {k8s_env.total_invoke_failures}\n')
         cleanup(delete_manifests=False)
 
     print('Done.')
+    print(f'Total Invoke Failures: {k8s_env.total_invoke_failures}\n')
     print(f'Saving models to saved_models/{run_id}...')
     # Save Replay Buffer, policy net, and target net.
     make_dir(f'saved_models/{run_id}')

@@ -2,6 +2,7 @@ from multiprocessing import Process, Manager
 import random
 import time
 import signal
+from threading import Thread
 from pprint import pprint
 from subprocess import run
 from itertools import count
@@ -100,6 +101,7 @@ class KubernetesEnv():
         self.env = env
         self.benchmarks = benchmarks
         self.terminated = False
+        self.total_invoke_failures = 0
                     
     def get_env_state(self, t):
         try:
@@ -112,6 +114,18 @@ class KubernetesEnv():
         unpacked_env_state = unpack_env_state(sampled_env_state)
         return unpacked_env_state
     
+    # Eliminate crashed containers for each benchmark using multiprocessing.
+    def error_crackdown(self, benchmarks, desired_counts):
+        print('Cracking down on crashed pods...')
+        processes = []
+        for benchmark, desired in zip(benchmarks, desired_counts):
+            p = Process(target=self.wait_to_scale, args=(benchmark, desired))
+            processes.append(p)
+            p.start()
+        for proc in processes:
+            proc.join()
+        print('Done looking for and eliminating crashed pods.')
+        
     def get_lats(self, benchmark, t, lats):
         print(f'Invoking benchmark {benchmark.name}...')
         (stat_issued, stat_completed), (stat_real_rps, stat_target_rps), stat_lat_filename = \
@@ -135,7 +149,42 @@ class KubernetesEnv():
             print('    99th: ', lat_99/1000, 'ms')
             print('    99.9th: ', lat_999/1000, 'ms')
         lats[benchmark.name] = (lat_50, lat_90, lat_99, lat_999)
-        
+    
+    # Wait for the benchmark to finish scaling.
+    # If any errors are encountered, delete the offending pod and try again.
+    def wait_to_scale(self, benchmark, desired, timeout=60):
+        print(f'Waiting for deployment `{benchmark.services[0].name}` to scale...')
+        start = time.time()
+        while not benchmark.deployments[0].is_ready():
+            get_num_pods_cmd = '''kubectl get deployments -l app=''' + benchmark.name + ''' -o=jsonpath="{.items[0].status.replicas}"'''
+            num_pods = int(run(get_num_pods_cmd, shell=True, universal_newlines=True, capture_output=True).stdout)
+            # Look for errors in all pods.
+            # If an error is spotted, delete the offending pod.
+            for i in range(num_pods):
+                check_for_errors_cmd = '''kubectl get pods -l app=''' + benchmark.name + ''' -o=jsonpath="{.items[''' + str(i) + '''].status.containerStatuses[1].lastState.terminated}"'''
+                ret = run(check_for_errors_cmd, shell=True, universal_newlines=True, capture_output=True).stdout
+                # If there is no 'terminated' status, then there is no error.
+                error_found = ret != ''
+                if error_found:
+                    print('An error was detected in one of the pods.')
+                    # Get the offending pod's name.
+                    get_pod_name_cmd = '''kubectl get pods -l app=''' + benchmark.name + ''' -o=jsonpath="{.items[''' + str(i) + '''].metadata.name}"'''
+                    pod_name = run(get_pod_name_cmd, shell=True, universal_newlines=True, capture_output=True).stdout
+                    print(f'The offending pod is {pod_name}.')
+                    # Delete the offending pod.
+                    delete_pod_cmd = f'kubectl delete pod/{pod_name} --wait=false'
+                    # Create a thread so the pod deletion doesn't stop the code.
+                    t = Thread(target=run, args=(delete_pod_cmd,), kwargs={'shell' : True, 'capture_output' : True})
+                    t.start()
+                    print(f'Offending pod {pod_name} is being deleted.')
+            # Scale back to the desired count to replace deleted pods.
+            print('Scaling back to desired count...')
+            scale_cmd = f"kubectl scale deployment/{benchmark.services[0].name} --replicas={desired}"
+            run(scale_cmd, shell=True)
+            continue
+        # Give message when scaling is done.
+        print(f'Deployment `{benchmark.services[0].name}` successfully scaled in {round(time.time() - start, 3)} seconds.\n')
+    
     # Update each deployment with the corresponding desired replica count.
     def scale_with_action(self, desired, benchmark, timeout=60):
         # Get current replicas
@@ -146,22 +195,9 @@ class KubernetesEnv():
         print(f'Scaling {benchmark.services[0].name} from {curr_replicas} to {target_replicas} replicas...')
         scale_cmd = f"kubectl scale deployment/{benchmark.services[0].name} --replicas={target_replicas}"
         # Scale.
-        signal.alarm(timeout)
-        start = time.time()
         ret = run(scale_cmd, shell=True, capture_output=True, universal_newlines=True)
         if ret.returncode != 0:
             assert False, f"\n[ERROR] Failed to scale {benchmark.services[0].name} to {target_replicas} replicas.`\n[ERROR] Error message: {ret.stderr}"
-        print(f'Waiting to scale deployment `{benchmark.services[0].name}`...')
-        # Wait to scale.
-        try:
-            while not benchmark.deployments[0].is_ready():
-                continue
-            print(f'Deployment `{benchmark.services[0].name}` successfully scaled in {round(time.time() - start, 3)} seconds.\n')
-        except TimeoutError as exc:
-            print('{}: {}'.format(exc.__class__.__name__, exc))
-            assert False
-        # Cancel the timer when the replicas are ready
-        signal.alarm(0)      
         
     # Take the action and get the latencies for a given time.
     def evaluate_action(self, action_set, t, cooldown=15):
@@ -173,8 +209,11 @@ class KubernetesEnv():
             print(f'Scale attempt {c+1}:')
             try:
                 processes = []
+                # Execute scale commands sequentially
                 for benchmark, desired in zip(self.benchmarks, updated_counts):
-                    p = Process(target=self.scale_with_action, args=(desired, benchmark))
+                    self.scale_with_action(desired, benchmark)
+                    # Wait for all scaling to finish.
+                    p = Process(target=self.wait_to_scale, args=(benchmark, desired))
                     processes.append(p)
                     p.start()
                 # Join processes.
@@ -194,11 +233,9 @@ class KubernetesEnv():
         invoke_failures = 0
         for c in count():
             print(f'Invocation attempt {c+1}:')
-            # If N consecutive failures are encountered, sleep for (N/3 * cooldown) seconds.
-            if invoke_failures != 0 and invoke_failures % 3 == 0:
-                timeout = cooldown*invoke_failures/3
-                print(f'{invoke_failures} successive invocation errors: cooling down for {timeout} seconds...')
-                time.sleep(timeout)
+            # Give up this iteration if three successive invocation errors are encountered
+            if invoke_failures == 1:
+                self.error_crackdown(self.benchmarks, updated_counts)
             try:
                 with Manager() as manager:
                     lats = manager.dict()
@@ -227,9 +264,11 @@ class KubernetesEnv():
                 invoke_failures += 1
                 print(f'Invocation error: {e}')
                 print('Invocation failed: retrying...')
+        self.total_invoke_failures += invoke_failures
 
     # TODO: update
     def check_termination(self):
+        return False
         return self.terminated
     
     # TODO: update
