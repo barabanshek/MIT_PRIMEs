@@ -421,9 +421,9 @@ def main(args):
                 episode_durations.append(t + 1)
                 plot_durations(run_id)
                 break
-            # if t == 149:
-            #     plot_durations()
-            #     break
+            if t == 149:
+                # plot_durations()
+                break
         print('Episode finished.')
         print(f'Total Invoke Failures: {k8s_env.total_invoke_failures}\n')
         cleanup(delete_manifests=False)
