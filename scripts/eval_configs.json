@@ -3,8 +3,7 @@
         "name" : "fibonacci-python",
         "entry-point" : "fibonacci-python",
         "functions" : ["fibonacci-python"],
-        "rps-min" : 100,
-        "rps-max" : 100,
+        "rps-vals" : [450],
         "sla" : {
             "lat" : [0, 1e5, 0, 0]
         }
@@ -13,8 +12,7 @@
         "name" : "hotel-app-geo",
         "entry-point" : "hotel-app-geo",
         "functions" : ["hotel-app-geo"],
-        "rps-min" : 100,
-        "rps-max" : 100,
+        "rps-vals" : [450],
         "sla" : {
             "lat" : [0, 1e5, 0, 0]
         }
@@ -23,8 +21,7 @@
         "name" : "hotel-app-profile",
         "entry-point" : "hotel-app-profile",
         "functions" : ["hotel-app-profile"],
-        "rps-min" : 100,
-        "rps-max" : 100,
+        "rps-vals" : [450],
         "sla" : {
             "lat" : [0, 1e5, 0, 0]
         }

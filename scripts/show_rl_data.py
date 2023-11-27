@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
     
 # Plot all relevant metrics on a single plot.
-def plot_all(df, id, episode):
+def plot_all(df, id):
     fig, ax = plt.subplots(3, 1)
     X = df['step']
     # Plot reward.
@@ -35,25 +35,21 @@ def plot_all(df, id, episode):
     fig.set_figwidth(10.0)
     fig.set_figheight(10.0)
     make_dir(f'./rl-plots/run-{id}')
-    plt.savefig(f'./rl-plots/run-{id}/e{episode}.png')
+    plt.savefig(f'./rl-plots/run-{id}.png')
     
 def main(args):
     file = args.f
-    episode = int(args.e)
     id = file[-13:-7]
     with open(file, 'rb') as handle:
         data = pickle.load(handle)
         df = pd.DataFrame(data)
     make_dir('./rl-csv-data')
     df.to_csv(f'./rl-csv-data/{id}.csv', columns=df.columns)
-    # Get the dataframe entries for the episode.
-    df = df.loc[df['episode'] == episode]
     # episodes = np.unique(np.array(df['episode']))
-    plot_all(df, id, episode)
+    plot_all(df, id)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--f')
-    parser.add_argument('-e')
     args = parser.parse_args()
     main(args)

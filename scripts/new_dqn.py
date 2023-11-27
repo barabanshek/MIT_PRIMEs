@@ -84,7 +84,7 @@ BATCH_SIZE = 8
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.05
-EPS_DECAY = 1000
+EPS_DECAY = 150
 TAU = 0.005
 LR = 1e-4
 
@@ -252,71 +252,125 @@ def save_replay_buffer(replay_buffer, filename):
         pickle.dump(replay_buffer, f)
 
 def main(args):
-    # Manually configure RPS values for now.
-    RPS_VALS = random.sample(range(100, 1000), int(args.e))
-    with open(args.config, 'r') as f:
-        json_data = json.load(f)
-        benchmarks = json_data['benchmarks']
+    # Duration to run each benchmark
+    episode_duration = int(args.d)
     # Initialize Envs
     env_shim = Env(verbose=True)
     # Setup Prometheus and check if setup is successful.
     if not env_shim.setup_prometheus():
         print("[ERROR] Prometheus setup failed, please read error message and try again.")
         return 0
-    # List of all Benchmark objects
-    bm_objects = []
-    # Create manifests and objects.
-    for benchmark in benchmarks:
-        deployments, services = [], []
-        benchmark_name = benchmark['name']
-        rand_id = ''.join(random.choices(string.ascii_lowercase, k=10))
-        benchmark_name += '-' + rand_id
-        functions = benchmark['functions']
-        entry_point_function = benchmark['entry-point']
-        entry_point_function_index = functions.index(entry_point_function)            
-        sla = benchmark['sla']
-        rps_range = (benchmark['rps-min'], benchmark['rps-max'])
-        for i in range(len(functions)):
-            # Read YAML of original function to get dicts.
-            file_name = f"k8s-yamls/{functions[i]}.yaml"
-            with open(path.join(path.dirname(__file__), file_name)) as f:
-                dep, svc, hpa = yaml.load_all(f, Loader=SafeLoader)
-            # Update function to include new id.
-            new_funct = functions[i] + '-' + rand_id
-            # Update the old dict to include new id.
-            new_dep, new_svc, new_hpa = rename_yaml(dep, svc, hpa, new_funct)
-            # List of manifests as dicts to be converted into new YAML file.
-            manifests = [new_dep, new_svc]
-            # Update file name
-            make_dir('k8s-yamls/tmp')
-            file_name = f"k8s-yamls/tmp/{new_funct}.yaml"
-            # Dump manifests into new YAML file.
-            with open(file_name, 'x') as f:
-                yaml.dump_all(manifests, f)
-            # Instantiate Service objects
-            port = new_svc['spec']['ports'][0]['port']
-            service = Service(new_funct, file_name, port)
-            # Instantiate Deployment objects
-            deployment = Deployment(new_dep, env_shim.api)
-            # Update deployments and services
-            deployments.append(deployment)
-            services.append(service)
-        bm_object = Benchmark(benchmark_name, deployments, services, entry_point_function_index, sla, rps_range)
-        bm_objects.append(bm_object)
-    # Initialize KubernetesEnv
-    k8s_env = KubernetesEnv(env_shim, bm_objects)
+    
+    if args.config == 'dqn_configs.json':
+        print("Using dqn_configs benchmarks...")
+        with open(args.config, 'r') as f:
+            json_data = json.load(f)
+            benchmarks = json_data['benchmarks']
+        # List of all Benchmark objects
+        bm_objects = []
+        # Create manifests and objects.
+        for benchmark in benchmarks:
+            deployments, services = [], []
+            benchmark_name = benchmark['name']
+            rand_id = ''.join(random.choices(string.ascii_lowercase, k=10))
+            benchmark_name += '-' + rand_id
+            functions = benchmark['functions']
+            entry_point_function = benchmark['entry-point']
+            entry_point_function_index = functions.index(entry_point_function)            
+            sla = benchmark['sla']
+            rps_range = (benchmark['rps-min'], benchmark['rps-max'])
+            for i in range(len(functions)):
+                # Read YAML of original function to get dicts.
+                file_name = f"k8s-yamls/{functions[i]}.yaml"
+                with open(path.join(path.dirname(__file__), file_name)) as f:
+                    dep, svc, hpa = yaml.load_all(f, Loader=SafeLoader)
+                # Update function to include new id.
+                new_funct = functions[i] + '-' + rand_id
+                # Update the old dict to include new id.
+                new_dep, new_svc, new_hpa = rename_yaml(dep, svc, hpa, new_funct)
+                # List of manifests as dicts to be converted into new YAML file.
+                manifests = [new_dep, new_svc]
+                # Update file name
+                make_dir('k8s-yamls/tmp')
+                file_name = f"k8s-yamls/tmp/{new_funct}.yaml"
+                # Dump manifests into new YAML file.
+                with open(file_name, 'x') as f:
+                    yaml.dump_all(manifests, f)
+                # Instantiate Service objects
+                port = new_svc['spec']['ports'][0]['port']
+                service = Service(new_funct, file_name, port)
+                # Instantiate Deployment objects
+                deployment = Deployment(new_dep, env_shim.api)
+                # Update deployments and services
+                deployments.append(deployment)
+                services.append(service)
+            bm_object = Benchmark(benchmark_name, deployments, services, entry_point_function_index, sla, rps_range)
+            bm_objects.append(bm_object)
+        bm_objects_set = [bm_objects]
+        
+    elif args.config == 'eval_configs.json':
+        print("Using eval_configs benchmarks...")
+        with open(args.config, 'r') as f:
+            json_data = json.load(f)
+            benchmarks = json_data['benchmarks']
+        # List of all Benchmark objects
+        bm_objects_set = []
+        # Create manifests and objects.
+        for k in range(len(benchmarks[0]['rps-vals'])):
+            bm_objects = []
+            for benchmark in benchmarks:
+                deployments, services = [], []
+                benchmark_name = benchmark['name']
+                functions = benchmark['functions']
+                entry_point_function = benchmark['entry-point']
+                entry_point_function_index = functions.index(entry_point_function)            
+                sla = benchmark['sla']
+                rps_vals = benchmark['rps-vals']
+                for i in range(len(functions)):
+                    rand_id = ''.join(random.choices(string.ascii_lowercase, k=10))
+                    benchmark_name += '-' + rand_id
+                    # Read YAML of original function to get dicts.
+                    file_name = f"k8s-yamls/{functions[i]}.yaml"
+                    with open(path.join(path.dirname(__file__), file_name)) as f:
+                        dep, svc, hpa = yaml.load_all(f, Loader=SafeLoader)
+                    # Update function to include new id.
+                    new_funct = functions[i] + '-' + rand_id
+                    # Update the old dict to include new id.
+                    new_dep, new_svc, new_hpa = rename_yaml(dep, svc, hpa, new_funct)
+                    # List of manifests as dicts to be converted into new YAML file.
+                    manifests = [new_dep, new_svc]
+                    # Update file name
+                    make_dir('k8s-yamls/tmp')
+                    file_name = f"k8s-yamls/tmp/{new_funct}.yaml"
+                    # Dump manifests into new YAML file.
+                    with open(file_name, 'x') as f:
+                        yaml.dump_all(manifests, f)
+                    # Instantiate Service objects
+                    port = new_svc['spec']['ports'][0]['port']
+                    service = Service(new_funct, file_name, port)
+                    # Instantiate Deployment objects
+                    deployment = Deployment(new_dep, env_shim.api)
+                    # Update deployments and services
+                    deployments.append(deployment)
+                    services.append(service)
+                rps_range = (rps_vals[k], rps_vals[k])
+                bm_object = Benchmark(benchmark_name, deployments, services, entry_point_function_index, sla, rps_range)
+                bm_objects.append(bm_object)
+            bm_objects_set.append(bm_objects)
+    else:
+        print("Using saved training benchmarks...")
+        with open('train_benchmark.pickle', 'r') as handle:
+            bm_objects_set = pickle.load(handle)
+            
     timestep = int(args.t)
     # Action space is cartesian product of the three possible scaling decisions for three functions
-    action_space = ActionSpace(list(product([-1, 0, 1], repeat=len(benchmarks))))
-    # Initialize RL Env.
-    rl_env = RLEnv(action_space, k8s_env, timestep)
-    run_id = rl_env.rand_id
-    # Initialize state.
-    init_state = rl_env.compute_state()
+    action_space = ActionSpace(list(product([-1, 0, 1], repeat=len(bm_objects))))
+    
+    run_id = ''.join(random.choices(string.ascii_lowercase, k=6))
     # Get number of actions from action space
     n_actions = action_space.n
     # Get number of observations from state space.
-    n_observations = len(init_state)
+    n_observations = 5 + len(bm_objects_set[0])
 
     policy_net = DQN(n_observations, n_actions).to(device)
     target_net = DQN(n_observations, n_actions).to(device)
@@ -325,17 +379,17 @@ def main(args):
     optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
     memory = ReplayMemory(10000)
         
-    if torch.cuda.is_available():
-        num_episodes = len(RPS_VALS)
-    else:
-        num_episodes = len(RPS_VALS)
     # Initialize wandb logging.
     wandb.init(project='serverless-dqn')
     
+    num_episodes = len(bm_objects_set)
     ### Iterate through training episodes.
     for i_episode in range(num_episodes):
-        rps = RPS_VALS[i_episode]
-        print(f'\n>>> Running episode {i_episode + 1} with {rps} RPS.\n')
+        bm_objects = bm_objects_set[i]
+        # Initialize KubernetesEnv
+        k8s_env = KubernetesEnv(env_shim, bm_objects)
+        rl_env = RLEnv(action_space, k8s_env, timestep)
+        rl_env.rand_id = run_id
         # Simultaneously deploy all benchmarks.
         processes = []
         for bm in bm_objects:
@@ -344,10 +398,6 @@ def main(args):
             p.start()
         for proc in processes:
             proc.join()
-        # Update RPS for all benchmarks.
-        for idx, bm in enumerate(bm_objects):
-            bm.rps = rps
-            bm_objects[idx] = bm
         # Update KubernetesEnv with new Benchmark objects..
         k8s_env.benchmarks = bm_objects
         # Update RLEnv.
@@ -376,21 +426,7 @@ def main(args):
             reward = torch.tensor([reward], device=device)
             done = terminated or truncated
             rl_env.save_step(i_episode, t+1, action.item(), lats)
-            cpu, mem_free, net_transmit, net_receive, n_containers, rps_ = observation
-
-            # Log things.
-            log_data = {}
-            log_data['episode'] = i_episode + 1
-            log_data['reward'] = reward
-            log_data['lats'] = lats
-            log_data['observation:cpu'] = cpu
-            log_data['observation:mem_free'] = mem_free
-            log_data['observation:net_transmit'] = net_transmit
-            log_data['observation:net_receive'] = net_receive
-            log_data['num_containers'] = [benchmark.replicas for benchmark in k8s_env.benchmarks]
-            log_data['rps'] = rps_
-            wandb_log(log_data)
-
+            
             if terminated:
                 next_state = None
             else:
@@ -417,6 +453,8 @@ def main(args):
             print(f'Average time per step so far: {round(avg_time, 4)} seconds.')
             avg_step_times.append(avg_time)
             plot_avg_times(run_id, avg_step_times)
+            if total_time >= episode_duration:
+                break
             if done:
                 episode_durations.append(t + 1)
                 plot_durations(run_id)
@@ -433,9 +471,9 @@ def main(args):
     print(f'Saving models to saved_models/{run_id}...')
     # Save Replay Buffer, policy net, and target net.
     make_dir(f'saved_models/{run_id}')
-    target = f'saved_models/{rl_env.rand_id}/target_net.pth'
-    policy = f'saved_models/{rl_env.rand_id}/policy_net.pth'
-    buffer = f'saved_models/{rl_env.rand_id}/replay_buffer.pickle'
+    target = f'saved_models/{run_id}/target_net.pth'
+    policy = f'saved_models/{run_id}/policy_net.pth'
+    buffer = f'saved_models/{run_id}/replay_buffer.pickle'
     target_scripted = torch.jit.script(target_net)
     target_scripted.save(target)
     policy_scripted = torch.jit.script(policy_net)
@@ -447,8 +485,8 @@ def main(args):
 if __name__ == "__main__":
     # Config file for benchmarks
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config')
+    parser.add_argument('--config', default='train_benchmarks.pickle')
     parser.add_argument('-t')
-    parser.add_argument('-e')
+    parser.add_argument('-d')
     args = parser.parse_args()
     main(args)

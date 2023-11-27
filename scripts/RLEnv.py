@@ -13,7 +13,7 @@ from data_processing import make_dir
 # Returns: float representing instant reward
 # latencies : Dict{'fibonacci-ID' : (50th, 90th, 99th, 99.9th), 'hotel-app-geo-ID' : ...}
 # benchmarks: List[Benchmark] : benchmark objects to use for SLA comparison.
-def compute_reward(latencies, benchmarks):
+def compute_reward(latencies, benchmarks, n_containers):
     sum = 0
     for benchmark in benchmarks:
         benchmark_name = benchmark.name
@@ -27,8 +27,9 @@ def compute_reward(latencies, benchmarks):
         sum += diff
     # Get average of the % differences for each function
     avg_lat = sum/len(latencies)
+    pre_shaped = max(avg_lat - 0.01 * n_containers, 0)
     # Reward shaping
-    return 1 - avg_lat ** 0.4
+    return 1 - pre_shaped ** 0.4
 
 class ActionSpace():   
     """Object to represent an RL agent's action space.
@@ -99,8 +100,8 @@ class RLEnv():
     def compute_state(self):
         cpu_idle, cpu_user, cpu_system, mem_free, net_transmit, net_receive = self.k8s_env.get_env_state(self.t)[0]
         num_containers = sum([benchmark.replicas for benchmark in self.k8s_env.benchmarks])
-        rps = self.k8s_env.benchmarks[0].rps
-        env_state = np.array([cpu_user, mem_free, net_transmit, net_receive, num_containers, rps])
+        rps_vals = np.array([self.k8s_env.benchmarks[i].rps for i in range(len(self.k8s_env.benchmarks))])
+        env_state = np.concatenate((np.array([cpu_user, mem_free, net_transmit, net_receive, num_containers]), rps_vals))
         return env_state
     
     def save_step(self, i_episode, step, action_i, lats):
@@ -147,7 +148,7 @@ class RLEnv():
                 # Compute state.
                 self.state = self.compute_state()
                 # Compute reward.
-                self.reward = compute_reward(lats, self.k8s_env.benchmarks)
+                self.reward = compute_reward(lats, self.k8s_env.benchmarks, self.state[4])
                 self.terminated = self.k8s_env.check_termination()
                 self.truncated = self.k8s_env.check_truncation()
             except Exception as e:
